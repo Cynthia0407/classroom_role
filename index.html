@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>우리반 1인 1역 다했니?</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        jua: ['Jua', 'sans-serif'],
+                    },
+                    colors: {
+                        cookie: {
+                            bg: '#FFF8E7',
+                            border: '#FFD369',
+                            btn: '#FF9F43',
+                            btnHover: '#FF8C00',
+                            text: '#574b90',
+                            card: '#FFFFFF'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Jua', sans-serif;
+            background-color: #FFF8E7;
+            color: #574b90;
+            user-select: none; /* 방해되는 텍스트 선택 방지 (태블릿 최적화) */
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* 스크롤바 숨기기 */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        .card-shadow {
+            box-shadow: 0 8px 0px 0px #FFD369, 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .card-shadow:active {
+            transform: translateY(4px);
+            box-shadow: 0 4px 0px 0px #FFD369, 0 5px 10px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-press {
+            box-shadow: 0 4px 0px 0px #cc7a36;
+            transition: all 0.1s;
+        }
+        .btn-press:active {
+            transform: translateY(4px);
+            box-shadow: 0 0px 0px 0px #cc7a36;
+        }
+
+        .toast {
+            animation: slideUp 0.3s ease-out forwards, fadeOut 0.3s ease-in 2.5s forwards;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; visibility: hidden; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-6 px-4">
+
+    <!-- Header -->
+    <header class="w-full max-w-5xl flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-bold text-cookie-btn drop-shadow-md">
+                <i class="fa-solid fa-cookie-bite mr-2"></i>우리반 1인 1역
+            </h1>
+            <p id="current-date-display" class="text-lg md:text-xl text-cookie-text mt-1 opacity-80"></p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="openModal('addStudentModal')" class="btn-press bg-green-400 text-white w-12 h-12 rounded-full text-xl flex justify-center items-center">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+            <button onclick="openModal('settingsModal')" class="btn-press bg-gray-400 text-white w-12 h-12 rounded-full text-xl flex justify-center items-center">
+                <i class="fa-solid fa-gear"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main id="student-grid" class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+        <!-- Student cards will be injected here -->
+    </main>
+
+    <!-- Add/Edit Student Modal -->
+    <div id="addStudentModal" class="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center hidden z-50 p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-md border-4 border-cookie-border shadow-xl transform transition-transform scale-95" id="studentModalContent">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="studentModalTitle" class="text-2xl font-bold">학생 추가</h2>
+                <button onclick="closeModal('addStudentModal')" class="text-gray-400 hover:text-red-500 text-2xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <input type="hidden" id="editStudentId" value="">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-lg mb-1">이름</label>
+                    <input type="text" id="studentNameInput" class="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-cookie-btn outline-none" placeholder="예: 김철수">
+                </div>
+                <div>
+                    <label class="block text-lg mb-1">담당 역할 (1인 1역)</label>
+                    <input type="text" id="studentRoleInput" class="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-cookie-btn outline-none" placeholder="예: 칠판 지우기">
+                </div>
+            </div>
+            <div class="mt-6 flex gap-3">
+                <button onclick="deleteStudent()" id="deleteStudentBtn" class="hidden btn-press bg-red-400 text-white flex-1 py-3 rounded-xl text-lg">삭제</button>
+                <button onclick="saveStudent()" class="btn-press bg-cookie-btn text-white flex-1 py-3 rounded-xl text-lg">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal (API Key) -->
+    <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center hidden z-50 p-4">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-md border-4 border-cookie-border shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold"><i class="fa-solid fa-key mr-2 text-yellow-500"></i>환경 설정</h2>
+                <button onclick="closeModal('settingsModal')" class="text-gray-400 hover:text-red-500 text-2xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-lg mb-1">다했니 API 키 (Dahaenni Token)</label>
+                    <input type="password" id="apiKeyInput" class="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-cookie-btn outline-none" placeholder="API 키를 입력하세요">
+                    <p class="text-sm text-gray-400 mt-1">* 보상 지급 시 다했니 시스템으로 실시간 전송됩니다.</p>
+                </div>
+            </div>
+            <div class="mt-6">
+                <button onclick="saveSettings()" class="btn-press w-full bg-cookie-btn text-white py-3 rounded-xl text-lg">설정 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-10 left-0 right-0 flex flex-col items-center gap-2 z-50 pointer-events-none"></div>
+
+    <script>
+        // --- State Management ---
+        let appState = {
+            apiKey: '',
+            students: []
+        };
+        
+        // 날짜 관리를 위한 유틸리티
+        let last7Days = [];
+        let todayStr = '';
+
+        function initDates() {
+            const today = new Date();
+            // 로컬 타임존 기준으로 YYYY-MM-DD 포맷 생성
+            todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            
+            // 화면 상단 날짜 표시
+            const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+            document.getElementById('current-date-display').innerText = 
+                `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 (${weekDays[today.getDay()]}요일)`;
+
+            // 최근 7일 배열 생성
+            last7Days = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                last7Days.push({
+                    fullDate: dateStr,
+                    dayStr: `${d.getDate()}일`
+                });
+            }
+        }
+
+        // 초기 샘플 데이터 로드
+        function loadMockData() {
+            // 과거 날짜를 동적으로 계산하여 샘플 데이터 생성
+            const d1 = last7Days[6].fullDate; // 오늘
+            const d2 = last7Days[5].fullDate; // 어제
+            const d3 = last7Days[4].fullDate;
+            const d4 = last7Days[3].fullDate;
+            const d5 = last7Days[2].fullDate;
+            const d6 = last7Days[1].fullDate;
+            const d7 = last7Days[0].fullDate;
+
+            appState.students = [
+                { id: 1, name: '김지훈', role: '칠판 지우기', history: { [d1]: false, [d2]: true, [d3]: true }, rewardGiven: false },
+                { id: 2, name: '이수진', role: '우유 당번', history: { [d1]: true, [d2]: true, [d3]: true, [d4]: true, [d5]: true, [d6]: true, [d7]: true }, rewardGiven: false },
+                { id: 3, name: '박민준', role: '분리수거', history: { [d1]: false }, rewardGiven: false }
+            ];
+        }
+
+        // --- UI Rendering ---
+        function renderGrid() {
+            const grid = document.getElementById('student-grid');
+            grid.innerHTML = '';
+
+            appState.students.forEach(student => {
+                const isTodayDone = student.history && student.history[todayStr] === true;
+                
+                // 최근 7일 기록 HTML 생성
+                let historyHtml = '<div class="flex justify-between mt-4 mb-2">';
+                let totalCompleted = 0;
+                
+                last7Days.forEach(dayInfo => {
+                    const done = student.history && student.history[dayInfo.fullDate] === true;
+                    if(done) totalCompleted++;
+                    
+                    const isToday = dayInfo.fullDate === todayStr;
+                    const circleColor = done ? 'bg-green-400' : 'bg-gray-200';
+                    const ring = isToday ? 'ring-2 ring-cookie-btn ring-offset-1' : '';
+                    
+                    historyHtml += `
+                        <div class="flex flex-col items-center">
+                            <div class="w-6 h-6 rounded-full ${circleColor} ${ring} flex justify-center items-center text-white text-xs">
+                                ${done ? '<i class="fa-solid fa-check"></i>' : ''}
+                            </div>
+                            <span class="text-[10px] mt-1 text-gray-500">${dayInfo.dayStr}</span>
+                        </div>
+                    `;
+                });
+                historyHtml += '</div>';
+
+                // 보상 버튼 상태 결정
+                let rewardBtnHtml = '';
+                if (student.rewardGiven) {
+                    rewardBtnHtml = `<button disabled class="w-full bg-gray-200 text-gray-500 py-2 rounded-xl text-sm font-bold flex justify-center items-center gap-2"><i class="fa-solid fa-gift"></i> 보상 완료됨</button>`;
+                } else if (totalCompleted >= 5) {
+                    // 예시: 7일 중 5일 이상 완료시 보상 활성화
+                    rewardBtnHtml = `<button onclick="giveReward(${student.id})" class="btn-press w-full bg-yellow-400 text-white py-2 rounded-xl text-sm font-bold flex justify-center items-center gap-2"><i class="fa-solid fa-gift"></i> 다했니 보상하기!</button>`;
+                } else {
+                    rewardBtnHtml = `<button disabled class="w-full bg-gray-100 text-gray-400 py-2 rounded-xl text-sm font-bold flex justify-center items-center gap-2">보상까지 ${5 - totalCompleted}일 남음</button>`;
+                }
+
+                // 카드 HTML 조합
+                const card = document.createElement('div');
+                card.className = 'card-shadow bg-white rounded-3xl border-4 border-cookie-border p-5 flex flex-col relative';
+                
+                card.innerHTML = `
+                    <!-- 수정 버튼 -->
+                    <button onclick="editStudent(${student.id})" class="absolute top-4 right-4 text-gray-300 hover:text-gray-500">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-12 h-12 bg-blue-100 rounded-full flex justify-center items-center text-2xl">
+                            👦
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-800">${student.name}</h3>
+                            <p class="text-sm text-cookie-btn font-bold"><i class="fa-solid fa-tag mr-1"></i>${student.role}</p>
+                        </div>
+                    </div>
+                    
+                    ${historyHtml}
+
+                    <div class="mt-auto pt-4 border-t-2 border-dashed border-gray-100 space-y-3">
+                        <button onclick="toggleToday(${student.id})" class="btn-press w-full ${isTodayDone ? 'bg-cookie-btn' : 'bg-gray-200 text-gray-600'} text-white py-4 rounded-2xl text-xl font-bold transition-colors duration-300 flex justify-center items-center gap-2">
+                            ${isTodayDone ? '<i class="fa-solid fa-circle-check"></i> 오늘 완료!' : '<i class="fa-regular fa-circle"></i> 오늘 했나요? 터치!'}
+                        </button>
+                        ${rewardBtnHtml}
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        // --- Interactions ---
+        function toggleToday(studentId) {
+            const student = appState.students.find(s => s.id === studentId);
+            if (!student) return;
+
+            if (!student.history) student.history = {};
+            
+            // 토글
+            const wasDone = student.history[todayStr] === true;
+            student.history[todayStr] = !wasDone;
+            
+            if (!wasDone) {
+                showToast(`${student.name} 학생의 오늘 역할을 완료 처리했습니다! 🎉`, 'success');
+            }
+
+            renderGrid();
+        }
+
+        function giveReward(studentId) {
+            const student = appState.students.find(s => s.id === studentId);
+            if (!student) return;
+
+            // API 연동 체크
+            if (!appState.apiKey || appState.apiKey.trim() === '') {
+                showToast('다했니 API 키가 설정되지 않았습니다. 환경설정에서 키를 입력해주세요.', 'error');
+                openModal('settingsModal');
+                return;
+            }
+
+            // Mock API 전송 (실제로는 여기서 fetch 실행)
+            showToast(`🔄 다했니 API로 ${student.name} 학생 보상 전송 중...`, 'info');
+            
+            // 1초 후 성공 처리 시뮬레이션
+            setTimeout(() => {
+                student.rewardGiven = true;
+                showToast(`✅ ${student.name} 학생에게 다했니 보상이 지급되었습니다!`, 'success');
+                renderGrid();
+            }, 1000);
+        }
+
+        // --- Modal & Form Logic ---
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('hidden');
+            // 애니메이션을 위해 약간의 딜레이
+            setTimeout(() => {
+                modal.firstElementChild.classList.remove('scale-95');
+                modal.firstElementChild.classList.add('scale-100');
+            }, 10);
+
+            if(id === 'addStudentModal') {
+                document.getElementById('studentNameInput').focus();
+            }
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            modal.firstElementChild.classList.remove('scale-100');
+            modal.firstElementChild.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                // 리셋 폼
+                if(id === 'addStudentModal') {
+                    document.getElementById('studentNameInput').value = '';
+                    document.getElementById('studentRoleInput').value = '';
+                    document.getElementById('editStudentId').value = '';
+                    document.getElementById('deleteStudentBtn').classList.add('hidden');
+                    document.getElementById('studentModalTitle').innerText = '학생 추가';
+                }
+            }, 200);
+        }
+
+        function saveStudent() {
+            const name = document.getElementById('studentNameInput').value.trim();
+            const role = document.getElementById('studentRoleInput').value.trim();
+            const editId = document.getElementById('editStudentId').value;
+
+            if (!name || !role) {
+                showToast('이름과 역할을 모두 입력해주세요.', 'error');
+                return;
+            }
+
+            if (editId) {
+                // 수정
+                const student = appState.students.find(s => s.id === parseInt(editId));
+                if (student) {
+                    student.name = name;
+                    student.role = role;
+                    showToast('학생 정보가 수정되었습니다.', 'success');
+                }
+            } else {
+                // 추가
+                const newId = appState.students.length > 0 ? Math.max(...appState.students.map(s => s.id)) + 1 : 1;
+                appState.students.push({
+                    id: newId,
+                    name: name,
+                    role: role,
+                    history: {},
+                    rewardGiven: false
+                });
+                showToast('새로운 학생이 추가되었습니다.', 'success');
+            }
+
+            closeModal('addStudentModal');
+            renderGrid();
+        }
+
+        function editStudent(id) {
+            const student = appState.students.find(s => s.id === id);
+            if (!student) return;
+
+            document.getElementById('editStudentId').value = student.id;
+            document.getElementById('studentNameInput').value = student.name;
+            document.getElementById('studentRoleInput').value = student.role;
+            
+            document.getElementById('studentModalTitle').innerText = '학생 정보 수정';
+            document.getElementById('deleteStudentBtn').classList.remove('hidden');
+            
+            openModal('addStudentModal');
+        }
+
+        function deleteStudent() {
+            const editId = document.getElementById('editStudentId').value;
+            if (!editId) return;
+            
+            // 모달 안에서 삭제 확인 대신, 안전하게 상태변경 후 닫기
+            appState.students = appState.students.filter(s => s.id !== parseInt(editId));
+            showToast('학생이 삭제되었습니다.', 'success');
+            closeModal('addStudentModal');
+            renderGrid();
+        }
+
+        function saveSettings() {
+            const key = document.getElementById('apiKeyInput').value;
+            appState.apiKey = key;
+            showToast('환경설정이 저장되었습니다.', 'success');
+            closeModal('settingsModal');
+        }
+
+        // --- Utility ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let bg = 'bg-gray-800';
+            let icon = '<i class="fa-solid fa-circle-info text-blue-400"></i>';
+            if (type === 'success') {
+                bg = 'bg-cookie-btn';
+                icon = '<i class="fa-solid fa-check-circle text-white"></i>';
+            } else if (type === 'error') {
+                bg = 'bg-red-500';
+                icon = '<i class="fa-solid fa-triangle-exclamation text-white"></i>';
+            }
+
+            toast.className = `toast ${bg} text-white px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-3 text-lg pointer-events-auto`;
+            toast.innerHTML = `${icon} ${message}`;
+            
+            container.appendChild(toast);
+
+            // 3초 후 DOM에서 제거
+            setTimeout(() => {
+                if(toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 3000);
+        }
+
+        // Init
+        window.onload = () => {
+            initDates();
+            loadMockData();
+            renderGrid();
+        };
+
+    </script>
+</body>
+</html>
