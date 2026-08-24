@@ -1,11 +1,330 @@
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+  <title>우리반 1인 1역 관리판</title>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #FFF9F0;
+      --card-bg: #FFFFFF;
+      --primary: #FF8B8B;
+      --primary-dark: #FF6B6B;
+      --secondary: #FFE3E1;
+      --cookie-color: #D4A373;
+      --cookie-dark: #BC8A5F;
+      --text: #4A3E3D;
+      --gray-light: #F4F4F4;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Jua', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+      user-select: none;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: var(--primary);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 20px;
+      box-shadow: 0 4px 10px rgba(255, 139, 139, 0.3);
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-btns {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      font-family: 'Jua', sans-serif;
+      border: none;
+      border-radius: 14px;
+      padding: 8px 14px;
+      font-size: 15px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: transform 0.1s, background-color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+    }
+
+    .btn-white { background-color: white; color: var(--primary-dark); }
+    .btn-refresh { background-color: var(--cookie-color); color: white; min-width: 100px; justify-content: center; }
+    .btn-refresh:hover { background-color: var(--cookie-dark); }
+    .btn-refresh:disabled { background-color: #ccc; cursor: not-allowed; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 20px;
+      padding: 16px;
+      border: 3px solid var(--secondary);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.03);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .student-name {
+      font-size: 22px;
+      margin: 0;
+      color: var(--text);
+    }
+
+    .role-input {
+      font-family: 'Jua', sans-serif;
+      font-size: 15px;
+      color: #777;
+      border: 1px dashed #DDD;
+      border-radius: 8px;
+      padding: 4px 8px;
+      margin-top: 4px;
+      width: 140px;
+      background: transparent;
+      outline: none;
+    }
+
+    .role-input:focus {
+      border-color: var(--primary);
+      background-color: #FFF;
+      color: var(--text);
+    }
+
+    .cookie-badge {
+      background-color: #FFF2E2;
+      color: var(--cookie-dark);
+      border: 2px solid var(--cookie-color);
+      border-radius: 12px;
+      padding: 4px 10px;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .days-row {
+      display: flex;
+      justify-content: space-between;
+      background-color: var(--gray-light);
+      padding: 6px;
+      border-radius: 14px;
+    }
+
+    .day-btn {
+      flex: 1;
+      height: 38px;
+      margin: 0 2px;
+      border-radius: 10px;
+      border: none;
+      background-color: white;
+      color: #999;
+      font-family: 'Jua', sans-serif;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .day-btn.active {
+      background-color: var(--primary);
+      color: white;
+      box-shadow: 0 2px 4px rgba(255, 139, 139, 0.4);
+    }
+
+    .card-bottom {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding-top: 4px;
+      border-top: 1px solid #F0F0F0;
+    }
+
+    .reward-toggle {
+      font-family: 'Jua', sans-serif;
+      font-size: 13px;
+      border: 1px solid #DDD;
+      background: #FAFAFA;
+      color: #888;
+      padding: 4px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .reward-toggle.checked {
+      background-color: #E8F5E9;
+      color: #2E7D32;
+      border-color: #A5D6A7;
+    }
+
+    /* 설정 모달 */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .modal {
+      background: white;
+      border-radius: 24px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .modal h2 {
+      margin-top: 0;
+      color: var(--primary-dark);
+      font-size: 22px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid var(--secondary);
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--primary);
+    }
+
+    .helper-box {
+      background-color: #F0F7FF;
+      border-left: 4px solid #4D96FF;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #333;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .modal-actions button {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
   <header>
     <h1>📋 1인 1역 보드</h1>
     <div class="header-btns">
       <button class="btn btn-refresh" onclick="refreshBoard()">🔄 새로고침</button>
       <button class="btn btn-white" onclick="resetWeeklyChecks()">🧹 주간 초기화</button>
       <button class="btn btn-white" onclick="openModal()">⚙️ 설정</button>
-<!-- ... existing code ... -->
+    </div>
+  </header>
+
+  <div class="grid" id="studentGrid"></div>
+
+  <!-- 설정 모달 -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h2>⚙️ 환경 설정</h2>
+      
+      <div class="form-group">
+        <label>1. 다했니 API Key (X-API-Key)</label>
+        <input type="text" id="cfg_api_key" placeholder="다했니 API 인증키 입력">
+      </div>
+
+      <div class="form-group">
+        <label>2. Firebase 설정 (JSON 형식)</label>
+        <textarea id="cfg_firebase" rows="3" placeholder='{"apiKey": "...", "projectId": "..."}'></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>3. Firestore 컬렉션 이름 (중복 방지)</label>
+        <input type="text" id="cfg_collection" placeholder="예: class_roles_2026">
+      </div>
+
+      <div class="form-group">
+        <label>4. 다했니 학생 명단 붙여넣기</label>
+        <div class="helper-box">
+          다했니 <b>[학생 관리]</b> 표 전체를 드래그 복사(Ctrl+C)해서 아래에 붙여넣기(Ctrl+V)하세요. 이름과 9자리 영문/숫자 코드를 자동으로 파싱합니다! 🤖
+        </div>
+        <textarea id="cfg_paste_area" rows="5" placeholder="여기에 복사한 표를 붙여넣으세요..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn" style="background-color: var(--primary); color: white;" onclick="saveConfig()">저장 및 적용</button>
+        <button class="btn" style="background-color: #EEE; color: #666;" onclick="closeModal()">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 여기서부터 스크립트 시작 (절대 지우거나 자르지 마세요) -->
+  <script type="module">
+    import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const daysKey = ['mon', 'tue', 'wed', 'thu', 'fri'];
     const daysLabel = ['월', '화', '수', '목', '금'];
 
     let db = null;
@@ -17,7 +336,15 @@
     });
 
     function initFirebaseOrLocal() {
-<!-- ... existing code ... -->
+      const fbConfigStr = localStorage.getItem('cfg_firebase');
+      collectionName = localStorage.getItem('cfg_collection') || 'class_roles_2026';
+
+      if (fbConfigStr && fbConfigStr.trim().startsWith('{')) {
+        try {
+          const config = JSON.parse(fbConfigStr);
+          const app = getApps().length === 0 ? initializeApp(config) : getApps()[0];
+          db = getFirestore(app);
+          
           onSnapshot(collection(db, collectionName), (snapshot) => {
             if (snapshot.empty) {
               loadLocalFallback();
@@ -54,7 +381,91 @@
 
     function render() {
       const grid = document.getElementById('studentGrid');
-<!-- ... existing code ... -->
+      grid.innerHTML = '';
+
+      if (students.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #999;">우측 상단의 [⚙️ 설정]을 눌러 학생 명단을 추가해주세요!</div>';
+        return;
+      }
+
+      students.forEach((st, idx) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        let dayBtns = '';
+        daysKey.forEach((k, dIdx) => {
+          const isChecked = st.checks && st.checks[k];
+          dayBtns += `<button class="day-btn ${isChecked ? 'active' : ''}" onclick="toggleDay(${idx}, '${k}')">${daysLabel[dIdx]}</button>`;
+        });
+
+        card.innerHTML = `
+          <div class="card-top">
+            <div>
+              <h3 class="student-name">${st.name}</h3>
+              <input type="text" class="role-input" value="${st.role || ''}" placeholder="1인 1역 입력" onchange="updateRole(${idx}, this.value)">
+            </div>
+            <div class="cookie-badge">
+              🍪 <span>${st.cookies !== undefined ? st.cookies : '0'}</span>개
+            </div>
+          </div>
+          <div class="days-row">
+            ${dayBtns}
+          </div>
+          <div class="card-bottom">
+            <button class="reward-toggle ${st.rewarded ? 'checked' : ''}" onclick="toggleReward(${idx})">
+              ${st.rewarded ? '✅ 보상 완료' : '🎁 보상 미완료'}
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    window.toggleDay = async (idx, day) => {
+      const target = students[idx];
+      if (!target.checks) target.checks = {};
+      target.checks[day] = !target.checks[day];
+
+      await syncStudent(idx, { checks: target.checks });
+      render();
+    };
+
+    window.updateRole = async (idx, roleText) => {
+      students[idx].role = roleText;
+      await syncStudent(idx, { role: roleText });
+    };
+
+    window.toggleReward = async (idx) => {
+      const target = students[idx];
+      target.rewarded = !target.rewarded;
+      await syncStudent(idx, { rewarded: target.rewarded });
+      render();
+    };
+
+    async function syncStudent(idx, partialData) {
+      if (db) {
+        const docId = students[idx].id || idx.toString();
+        const docRef = doc(db, collectionName, docId);
+        await setDoc(docRef, partialData, { merge: true });
+      } else {
+        localStorage.setItem('local_students', JSON.stringify(students));
+      }
+    }
+
+    window.resetWeeklyChecks = async () => {
+      if (!confirm("모든 학생의 월~금 1인 1역 체크 및 보상 여부를 초기화하시겠습니까?")) return;
+
+      students.forEach(st => {
+        st.checks = {};
+        st.rewarded = false;
+      });
+
+      if (db) {
+        const batch = writeBatch(db);
+        students.forEach((st, idx) => {
+          const docId = st.id || idx.toString();
+          batch.set(doc(db, collectionName, docId), { checks: {}, rewarded: false }, { merge: true });
+        });
         await batch.commit();
       } else {
         localStorage.setItem('local_students', JSON.stringify(students));
@@ -62,7 +473,7 @@
       render();
     };
 
-    // 💡수정된 핵심 기능: 수동 갱신 (버튼 클릭 시에만 작동) 및 데이터 탐색 강화
+    // 💡수동 새로고침 (자동갱신 삭제, 중첩 데이터 파싱 강화)
     window.refreshBoard = async () => {
       const apiKey = localStorage.getItem('cfg_api_key');
       
@@ -90,27 +501,30 @@
           
           if (res.ok) {
             const data = await res.json();
-            console.log(`[${st.name}] 다했니 서버 응답 원본:`, data);
+            console.log(`[${st.name}] 다했니 서버 응답 원본:`, data); // F12 개발자 도구 확인용
 
-            // API 응답 데이터가 'data' 객체 안에 감싸져 있는 경우를 대비한 방어 코드
-            const payload = data.data ? data.data : data;
+            // 데이터가 'data' 객체 안에 중첩되어 올 경우를 대비한 깊은 탐색 로직
+            let fetchedCookie = undefined;
+            if (data && data.data) {
+                fetchedCookie = data.data.totalCookie ?? data.data.cookie ?? data.data.cookies ?? data.data.cookieCount;
+            }
+            // 중첩이 아닐 경우
+            fetchedCookie = fetchedCookie ?? data?.totalCookie ?? data?.cookie ?? data?.cookies ?? data?.cookieCount ?? data?.totalCookies;
             
-            // 다양한 변수명 모두 확인
-            const newCookies = payload.totalCookie ?? payload.cookie ?? payload.cookies ?? payload.cookieCount ?? payload.totalCookies ?? st.cookies;
-            
+            const newCookies = fetchedCookie ?? st.cookies;
+
             if (st.cookies !== newCookies) {
               st.cookies = newCookies;
               cookiesChanged = true;
             }
             updatedCount++;
             render(); 
-          } else {
-             console.warn(`[${st.name}] 통신 실패 (상태코드: ${res.status})`);
           }
         } catch (e) {
-          console.warn(`${st.name} 쿠키 조회 실패:`, e);
+          console.error(`[${st.name}] 쿠키 조회 실패:`, e);
         }
         
+        // Rate Limit (초당 5건 제한) 우회
         await new Promise(resolve => setTimeout(resolve, 250));
       }
 
@@ -136,7 +550,81 @@
     };
 
     window.openModal = () => {
-<!-- ... existing code ... -->
-```
+      document.getElementById('cfg_api_key').value = localStorage.getItem('cfg_api_key') || '';
+      document.getElementById('cfg_firebase').value = localStorage.getItem('cfg_firebase') || '';
+      document.getElementById('cfg_collection').value = localStorage.getItem('cfg_collection') || 'class_roles_2026';
+      document.getElementById('cfg_paste_area').value = '';
+      document.getElementById('settingsModal').style.display = 'flex';
+    };
 
-이제 **자동 갱신은 작동하지 않으며, 선생님이 직접 주황색 [새로고침] 버튼을 눌렀을 때만 정보를 가져옵니다.** 만약 버튼을 눌렀는데도 또다시 쿠키가 0개로 표시된다면, 꼭 F12(개발자 도구)를 열어서 `Console(콘솔)` 탭에 출력된 내용 중 `{ }` 괄호 안의 글자들을 알려주세요!
+    window.closeModal = () => {
+      document.getElementById('settingsModal').style.display = 'none';
+    };
+
+    window.saveConfig = async () => {
+      const apiKey = document.getElementById('cfg_api_key').value.trim();
+      const fbConfig = document.getElementById('cfg_firebase').value.trim();
+      const collName = document.getElementById('cfg_collection').value.trim() || 'class_roles_2026';
+      const pasteText = document.getElementById('cfg_paste_area').value.trim();
+
+      localStorage.setItem('cfg_api_key', apiKey);
+      localStorage.setItem('cfg_firebase', fbConfig);
+      localStorage.setItem('cfg_collection', collName);
+
+      if (pasteText) {
+        const parsedStudents = parseDahandinText(pasteText);
+        if (parsedStudents.length > 0) {
+          students = parsedStudents;
+          
+          if (fbConfig && fbConfig.startsWith('{')) {
+            try {
+              const app = getApps().length === 0 ? initializeApp(JSON.parse(fbConfig)) : getApps()[0];
+              const firestore = getFirestore(app);
+              const batch = writeBatch(firestore);
+              
+              students.forEach((st, idx) => {
+                const docRef = doc(firestore, collName, idx.toString());
+                batch.set(docRef, st);
+              });
+              await batch.commit();
+            } catch (err) {
+              console.error("Firestore 동기화 실패:", err);
+            }
+          }
+          localStorage.setItem('local_students', JSON.stringify(students));
+        }
+      }
+
+      closeModal();
+      location.reload(); 
+    };
+
+    function parseDahandinText(text) {
+      const lines = text.split('\n');
+      const result = [];
+      const codeRegex = /[A-Za-z0-9]{9}/; 
+      const nameRegex = /[가-힣]{2,5}/;    
+
+      lines.forEach((line, index) => {
+        const codeMatch = line.match(codeRegex);
+        const nameMatch = line.match(nameRegex);
+
+        if (codeMatch && nameMatch) {
+          result.push({
+            id: index.toString(),
+            name: nameMatch[0],
+            code: codeMatch[0],
+            role: '',
+            cookies: 0,
+            rewarded: false,
+            checks: {},
+            order: index
+          });
+        }
+      });
+
+      return result;
+    }
+  </script>
+</body>
+</html>
