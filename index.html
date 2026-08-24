@@ -174,12 +174,14 @@
                 </div>
 
                 <!-- 일괄 붙여넣기 -->
-                <div class="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200">
-                    <h3 class="text-xl font-bold text-blue-600 mb-2"><i class="fa-solid fa-users mr-1"></i> 명렬표 일괄 붙여넣기</h3>
-                    <p class="text-sm text-gray-600 mb-2">엑셀이나 메모장에서 학생 이름 명단을 복사해서 붙여넣으세요. 띄어쓰기나 줄바꿈으로 구분됩니다.</p>
-                    <p class="text-xs text-gray-500 mb-3">예시: 김철수 이영희 박민수 ...</p>
-                    <textarea id="bulkImportText" class="w-full h-32 border-2 border-blue-200 rounded-xl p-3 text-lg focus:border-blue-400 outline-none resize-none" placeholder="여기에 이름을 붙여넣으세요..."></textarea>
-                    <button onclick="bulkImportStudents()" class="btn-press w-full bg-blue-500 text-white py-3 mt-3 rounded-xl text-lg font-bold">명단 일괄 추가하기</button>
+                <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
+                    <h3 class="text-lg font-bold text-gray-700 mb-2 flex items-center gap-2"><i class="fa-solid fa-clipboard text-gray-500"></i> 학생 목록 붙여넣기</h3>
+                    <div class="bg-[#E6F3FB] p-3 rounded-lg mb-3 text-[13px] text-[#1A4F76] font-medium leading-relaxed">
+                        다했니 <b>[학생 관리]</b> 표 전체를 드래그 복사(Ctrl+C)해서 붙여넣기(Ctrl+V) 하세요.<br>
+                        <span class="text-blue-800"><b>영문/숫자 9자리 학생 코드</b>를 자동으로 찾아냅니다! 🤖</span>
+                    </div>
+                    <textarea id="bulkImportText" class="w-full h-28 border border-gray-300 rounded-lg p-3 text-sm focus:border-blue-400 outline-none resize-none shadow-inner" placeholder="여기에 붙여넣으세요..."></textarea>
+                    <button onclick="bulkImportStudents()" class="btn-press w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 py-2 mt-3 rounded-lg text-sm font-bold shadow-sm transition-colors">명단 일괄 추가하기</button>
                 </div>
             </div>
         </div>
@@ -213,15 +215,25 @@
             if (customConfigStr) {
                 try {
                     const customConfig = JSON.parse(customConfigStr);
-                    app = initializeApp(customConfig, "TeacherApp");
+                    
+                    // 앱 중복 초기화 에러 방지
+                    if (!app) {
+                        app = initializeApp(customConfig, "TeacherApp-" + Date.now());
+                    }
+                    
                     db = getFirestore(app);
                     auth = getAuth(app);
                     
-                    await signInAnonymously(auth);
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (authError) {
+                        console.error("Firebase Auth 에러:", authError);
+                        showToast("경고: Firebase 콘솔에서 '익명 로그인'을 켜주세요.", "error");
+                    }
                     
-                    if (!auth.currentUser) return;
-                    
-                    window.appState.userId = auth.currentUser.uid;
+                    if (auth.currentUser) {
+                        window.appState.userId = auth.currentUser.uid;
+                    }
                     
                     const collectionName = localStorage.getItem('customFbCollection') || 'class_roles_2026';
                     // 데이터 동기화를 위한 커스텀 컬렉션 경로 설정
@@ -287,9 +299,9 @@
             } else {
                 // Sample Data
                 window.appState.students = [
-                    { id: 1, name: '김지훈', role: '칠판 지우기', history: { mon: true, tue: true, wed: false, thu: false, fri: false }, rewardGiven: false },
-                    { id: 2, name: '이수진', role: '우유 당번', history: { mon: true, tue: true, wed: true, thu: true, fri: true }, rewardGiven: false },
-                    { id: 3, name: '박민준', role: '분리수거', history: { mon: false, tue: false, wed: false, thu: false, fri: false }, rewardGiven: false }
+                    { id: 1, name: '김지훈', studentCode: 'A1B2C3D4E', role: '칠판 지우기', history: { mon: true, tue: true, wed: false, thu: false, fri: false }, rewardGiven: false },
+                    { id: 2, name: '이수진', studentCode: 'F5G6H7I8J', role: '우유 당번', history: { mon: true, tue: true, wed: true, thu: true, fri: true }, rewardGiven: false },
+                    { id: 3, name: '박민준', studentCode: 'K9L0M1N2O', role: '분리수거', history: { mon: false, tue: false, wed: false, thu: false, fri: false }, rewardGiven: false }
                 ];
             }
         }
@@ -349,7 +361,7 @@
                             <h3 class="text-3xl font-bold text-gray-800 truncate">${student.name}</h3>
                             <div class="flex items-center gap-2 mt-1">
                                 <p class="text-base text-cookie-btn font-bold truncate"><i class="fa-solid fa-tag mr-1"></i>${student.role || '역할 미정'}</p>
-                                <span class="text-sm bg-orange-100 text-orange-600 px-2 py-1 rounded-full font-bold whitespace-nowrap">
+                                <span class="text-sm bg-orange-100 text-orange-600 px-2 py-1 rounded-full font-bold whitespace-nowrap cursor-help" title="학생코드: ${student.studentCode || '미등록'}">
                                     🍪 ${student.cookieCount !== undefined ? student.cookieCount + '개' : '?개'}
                                 </span>
                             </div>
@@ -453,12 +465,12 @@
                     newStudents[index].name = name;
                     newStudents[index].role = role;
                     showToast('학생 정보가 수정되었습니다.', 'success');
-                }
-            } else {
+            if (!editId) {
                 const newId = newStudents.length > 0 ? Math.max(...newStudents.map(s => s.id)) + 1 : 1;
                 newStudents.push({
                     id: newId,
                     name: name,
+                    studentCode: '',
                     role: role,
                     history: { mon: false, tue: false, wed: false, thu: false, fri: false },
                     rewardGiven: false
@@ -498,31 +510,60 @@
         window.bulkImportStudents = function() {
             const text = document.getElementById('bulkImportText').value.trim();
             if (!text) {
-                showToast('명단을 입력해주세요.', 'error');
+                showToast('명단을 붙여넣어주세요.', 'error');
                 return;
             }
 
-            // 공백, 줄바꿈, 쉼표 등으로 분리하고 빈 문자열 제거
-            const names = text.split(/[\s,\n]+/).filter(n => n.trim() !== '');
-            
-            if(names.length === 0) return;
-
+            const lines = text.split('\n');
+            let addedCount = 0;
             let newStudents = [...window.appState.students];
             let startId = newStudents.length > 0 ? Math.max(...newStudents.map(s => s.id)) + 1 : 1;
 
-            names.forEach(name => {
-                newStudents.push({
-                    id: startId++,
-                    name: name,
-                    role: '',
-                    history: { mon: false, tue: false, wed: false, thu: false, fri: false },
-                    rewardGiven: false
-                });
+            lines.forEach(line => {
+                // 1. 9자리 영문/숫자 코드 추출 (예: A1B2C3D4E)
+                const codeMatch = line.match(/[A-Za-z0-9]{9}/);
+                
+                // 2. 한글 2~4글자 이름 추출 (다했니 표의 불필요한 단어 제외)
+                const nameMatches = line.match(/[가-힣]{2,4}/g);
+                
+                let name = "";
+                let code = codeMatch ? codeMatch[0] : "";
+
+                if (nameMatches) {
+                    const ignoreWords = ['다했니', '학생', '이름', '관리', '코드', '아이디', '비밀번호', '수정', '삭제', '메뉴', '선택'];
+                    const validNames = nameMatches.filter(n => !ignoreWords.includes(n));
+                    if (validNames.length > 0) {
+                        name = validNames[0]; 
+                    }
+                }
+
+                // 이름이나 코드가 하나라도 존재하면 학생 추가 로직 실행
+                if (name || code) {
+                    if (!name) name = "이름모름"; // 이름을 못 찾은 경우
+                    
+                    // 이미 등록된 코드는 중복 추가 방지
+                    if (code && newStudents.find(s => s.studentCode === code)) return;
+
+                    newStudents.push({
+                        id: startId++,
+                        name: name,
+                        studentCode: code, // 학생 코드 저장
+                        role: '',
+                        history: { mon: false, tue: false, wed: false, thu: false, fri: false },
+                        rewardGiven: false,
+                        cookieCount: '?'
+                    });
+                    addedCount++;
+                }
             });
 
-            syncToServer(newStudents);
-            showToast(`${names.length}명의 학생이 추가되었습니다!`, 'success');
-            closeModal('settingsModal');
+            if (addedCount > 0) {
+                syncToServer(newStudents);
+                showToast(`${addedCount}명의 학생(코드 포함)이 추가되었습니다!`, 'success');
+                closeModal('settingsModal');
+            } else {
+                showToast('유효한 학생 데이터(9자리 코드 등)를 찾지 못했습니다.', 'error');
+            }
         }
 
         window.resetAllRecords = function() {
@@ -541,47 +582,14 @@
 
         window.saveSyncSettings = function() {
             const configStr = document.getElementById('firebaseConfigInput').value.trim();
-            const collectionName = document.getElementById('fbCollectionInput').value.trim();
-            const apiKey = document.getElementById('apiKeyInput').value.trim();
-            
-            if (configStr) {
-                try {
-                    JSON.parse(configStr); // JSON 문법 검사
-                } catch (e) {
-                    showToast('Firebase 설정은 유효한 JSON 형식이어야 합니다.', 'error');
-                    return;
-                }
-                localStorage.setItem('customFirebaseConfig', configStr);
-            } else {
-                localStorage.removeItem('customFirebaseConfig');
-            }
-            
-            if (collectionName) {
-                localStorage.setItem('customFbCollection', collectionName);
-            } else {
-                localStorage.removeItem('customFbCollection');
-            }
-            
-            if (apiKey) {
-                localStorage.setItem('customApiKey', apiKey);
-            } else {
-                localStorage.removeItem('customApiKey');
-            }
-            
-            showToast('설정이 저장되었습니다. 새로고침됩니다.', 'success');
-            setTimeout(() => {
-                location.reload();
-            }, 1000);
-        }
-
-        window.refreshCookies = function() {
+        window.refreshCookies = async function() {
             const apiKey = localStorage.getItem('customApiKey');
             if (!apiKey) {
                 showToast("설정(⚙️)에서 다했니 API 키를 먼저 입력해주세요!", "error");
                 return;
             }
             
-            showToast("쿠키 정보를 불러오는 중...", "info");
+            showToast("실제 다했니 서버에서 쿠키 정보를 불러오는 중...", "info");
             
             const btn = document.querySelector('button[onclick="refreshCookies()"]');
             if(btn) {
@@ -589,19 +597,52 @@
                 btn.classList.add('opacity-50');
             }
 
-            // 다했니 API 시뮬레이션 (1초 후 모든 학생 쿠키 랜덤 갱신)
-            setTimeout(() => {
-                const newStudents = [...window.appState.students];
-                newStudents.forEach(student => {
-                    student.cookieCount = Math.floor(Math.random() * 50) + 1;
-                });
-                syncToServer(newStudents);
-                showToast("모든 학생의 쿠키 업데이트 완료!", "success");
-                if(btn) {
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-50');
+            const newStudents = [...window.appState.students];
+            let successCount = 0;
+            let failCount = 0;
+
+            // 실제 API 통신 로직 (학생 코드 순회하며 병렬 요청)
+            await Promise.all(newStudents.map(async (student) => {
+                if (!student.studentCode) return; // 코드가 없는 학생은 스킵
+                
+                try {
+                    // 다했니 공식 API 예상 엔드포인트
+                    const response = await fetch(`https://api.dahanni.com/openapi/v1/students/${student.studentCode}/cookie`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        student.cookieCount = data.cookieCount !== undefined ? data.cookieCount : (data.cookie || 0);
+                        successCount++;
+                    } else {
+                        console.warn(`[${student.name}] 조회 실패 (상태 코드: ${response.status})`);
+                        failCount++;
+                    }
+                } catch (err) {
+                    console.error(`[${student.name}] 통신 오류 (CORS/네트워크):`, err);
+                    failCount++;
                 }
-            }, 1000);
+            }));
+
+            syncToServer(newStudents);
+            
+            if (successCount > 0) {
+                showToast(`총 ${successCount}명의 학생 쿠키 업데이트 완료! (실패: ${failCount})`, "success");
+            } else if (failCount > 0) {
+                showToast("API 통신 실패. 학생 코드, API 키, 또는 네트워크 설정을 확인하세요.", "error");
+            } else {
+                showToast("쿠키를 조회할 학생 코드(9자리)가 없습니다.", "error");
+            }
+
+            if(btn) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+            }
         }
 
         // Utility
