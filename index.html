@@ -95,6 +95,7 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      position: relative;
     }
 
     .card-top {
@@ -103,10 +104,31 @@
       align-items: flex-start;
     }
 
+    .student-name-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
     .student-name {
       font-size: 22px;
       margin: 0;
       color: var(--text);
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #FF5252;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+
+    .delete-btn:hover {
+      opacity: 1;
     }
 
     .role-input {
@@ -300,16 +322,22 @@
       </div>
 
       <div class="form-group">
-        <label>3. Firestore 컬렉션 이름 (중복 방지)</label>
+        <label>3. Firestore 컬렉션 이름 (중복 방지용)</label>
         <input type="text" id="cfg_collection" placeholder="예: class_roles_2026">
       </div>
 
       <div class="form-group">
-        <label>4. 다했니 학생 명단 붙여넣기</label>
+        <label>4. 관리자 비밀번호 (초기화 및 삭제 방지)</label>
+        <input type="password" id="cfg_admin_pwd" placeholder="4자리 숫자 (기본: 0000)" maxlength="4">
+      </div>
+
+      <div class="form-group">
+        <label>5. 다했니 학생 명단 추가 (붙여넣기)</label>
         <div class="helper-box">
-          다했니 <b>[학생 관리]</b> 표 전체를 드래그 복사(Ctrl+C)해서 아래에 붙여넣기(Ctrl+V)하세요. 이름과 9자리 영문/숫자 코드를 자동으로 파싱합니다! 🤖
+          다했니 <b>[학생 관리]</b> 표 전체를 드래그 복사(Ctrl+C)해서 아래에 붙여넣으세요.<br>
+          * 이미 등록된 학생은 보존되며, 새로운 학생만 추가됩니다.
         </div>
-        <textarea id="cfg_paste_area" rows="5" placeholder="여기에 복사한 표를 붙여넣으세요..."></textarea>
+        <textarea id="cfg_paste_area" rows="3" placeholder="여기에 복사한 표를 붙여넣으세요..."></textarea>
       </div>
 
       <div class="modal-actions">
@@ -319,10 +347,9 @@
     </div>
   </div>
 
-  <!-- 여기서부터 스크립트 시작 (절대 지우거나 자르지 마세요) -->
   <script type="module">
     import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, doc, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, writeBatch, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const daysKey = ['mon', 'tue', 'wed', 'thu', 'fri'];
     const daysLabel = ['월', '화', '수', '목', '금'];
@@ -330,6 +357,7 @@
     let db = null;
     let students = [];
     let collectionName = localStorage.getItem('cfg_collection') || 'class_roles_2026';
+    let adminPwd = localStorage.getItem('cfg_admin_pwd') || '0000';
 
     window.addEventListener('DOMContentLoaded', () => {
       initFirebaseOrLocal();
@@ -338,6 +366,7 @@
     function initFirebaseOrLocal() {
       const fbConfigStr = localStorage.getItem('cfg_firebase');
       collectionName = localStorage.getItem('cfg_collection') || 'class_roles_2026';
+      adminPwd = localStorage.getItem('cfg_admin_pwd') || '0000';
 
       if (fbConfigStr && fbConfigStr.trim().startsWith('{')) {
         try {
@@ -401,7 +430,10 @@
         card.innerHTML = `
           <div class="card-top">
             <div>
-              <h3 class="student-name">${st.name}</h3>
+              <div class="student-name-container">
+                <h3 class="student-name">${st.name}</h3>
+                <button class="delete-btn" onclick="deleteStudent(${idx})" title="학생 삭제">🗑️</button>
+              </div>
               <input type="text" class="role-input" value="${st.role || ''}" placeholder="1인 1역 입력" onchange="updateRole(${idx}, this.value)">
             </div>
             <div class="cookie-badge">
@@ -420,6 +452,31 @@
         grid.appendChild(card);
       });
     }
+
+    // 💡 학생 개별 삭제 기능 (비밀번호 보호)
+    window.deleteStudent = async (idx) => {
+      const inputPwd = prompt("해당 학생을 삭제하시겠습니까?\n관리자 비밀번호 4자리를 입력하세요.");
+      if (inputPwd === null) return;
+      if (inputPwd !== adminPwd) {
+        alert("❌ 비밀번호가 일치하지 않습니다.");
+        return;
+      }
+
+      const st = students[idx];
+      students.splice(idx, 1); // 배열에서 제거
+
+      if (db) {
+        try {
+          const docId = st.id || idx.toString();
+          await deleteDoc(doc(db, collectionName, docId));
+        } catch(e) {
+          console.error("Firestore 삭제 실패:", e);
+        }
+      }
+      
+      localStorage.setItem('local_students', JSON.stringify(students));
+      render();
+    };
 
     window.toggleDay = async (idx, day) => {
       const target = students[idx];
@@ -452,8 +509,16 @@
       }
     }
 
+    // 💡 주간 초기화 기능 (비밀번호 보호)
     window.resetWeeklyChecks = async () => {
-      if (!confirm("모든 학생의 월~금 1인 1역 체크 및 보상 여부를 초기화하시겠습니까?")) return;
+      if (students.length === 0) return;
+      
+      const inputPwd = prompt("월~금 체크 기록 및 보상 여부를 전부 초기화합니다.\n관리자 비밀번호 4자리를 입력하세요.");
+      if (inputPwd === null) return;
+      if (inputPwd !== adminPwd) {
+        alert("❌ 비밀번호가 일치하지 않습니다.");
+        return;
+      }
 
       students.forEach(st => {
         st.checks = {};
@@ -471,9 +536,9 @@
         localStorage.setItem('local_students', JSON.stringify(students));
       }
       render();
+      alert("✅ 주간 기록이 초기화되었습니다.");
     };
 
-    // 💡수동 새로고침 (자동갱신 삭제, 중첩 데이터 파싱 강화)
     window.refreshBoard = async () => {
       const apiKey = localStorage.getItem('cfg_api_key');
       
@@ -501,14 +566,11 @@
           
           if (res.ok) {
             const data = await res.json();
-            console.log(`[${st.name}] 다했니 서버 응답 원본:`, data); // F12 개발자 도구 확인용
-
-            // 데이터가 'data' 객체 안에 중첩되어 올 경우를 대비한 깊은 탐색 로직
+            
             let fetchedCookie = undefined;
             if (data && data.data) {
                 fetchedCookie = data.data.totalCookie ?? data.data.cookie ?? data.data.cookies ?? data.data.cookieCount;
             }
-            // 중첩이 아닐 경우
             fetchedCookie = fetchedCookie ?? data?.totalCookie ?? data?.cookie ?? data?.cookies ?? data?.cookieCount ?? data?.totalCookies;
             
             const newCookies = fetchedCookie ?? st.cookies;
@@ -521,10 +583,9 @@
             render(); 
           }
         } catch (e) {
-          console.error(`[${st.name}] 쿠키 조회 실패:`, e);
+          console.warn(`[${st.name}] 쿠키 조회 실패:`, e);
         }
         
-        // Rate Limit (초당 5건 제한) 우회
         await new Promise(resolve => setTimeout(resolve, 250));
       }
 
@@ -553,6 +614,7 @@
       document.getElementById('cfg_api_key').value = localStorage.getItem('cfg_api_key') || '';
       document.getElementById('cfg_firebase').value = localStorage.getItem('cfg_firebase') || '';
       document.getElementById('cfg_collection').value = localStorage.getItem('cfg_collection') || 'class_roles_2026';
+      document.getElementById('cfg_admin_pwd').value = localStorage.getItem('cfg_admin_pwd') || '0000';
       document.getElementById('cfg_paste_area').value = '';
       document.getElementById('settingsModal').style.display = 'flex';
     };
@@ -565,34 +627,47 @@
       const apiKey = document.getElementById('cfg_api_key').value.trim();
       const fbConfig = document.getElementById('cfg_firebase').value.trim();
       const collName = document.getElementById('cfg_collection').value.trim() || 'class_roles_2026';
+      const pwd = document.getElementById('cfg_admin_pwd').value.trim() || '0000';
       const pasteText = document.getElementById('cfg_paste_area').value.trim();
 
       localStorage.setItem('cfg_api_key', apiKey);
       localStorage.setItem('cfg_firebase', fbConfig);
       localStorage.setItem('cfg_collection', collName);
+      localStorage.setItem('cfg_admin_pwd', pwd);
+      adminPwd = pwd; // 전역 변수 업데이트
 
       if (pasteText) {
-        const parsedStudents = parseDahandinText(pasteText);
-        if (parsedStudents.length > 0) {
-          students = parsedStudents;
+        const newStudents = parseDahandinText(pasteText);
+        
+        // 기존 명단 유지하면서 새로운 학생만 추가 (코드 기준)
+        const existingCodes = students.map(s => s.code);
+        const toAdd = newStudents.filter(s => !existingCodes.includes(s.code));
+        
+        if (toAdd.length > 0) {
+          const startingIndex = students.length;
+          toAdd.forEach((s, i) => {
+            s.id = (startingIndex + i).toString();
+            s.order = startingIndex + i;
+            students.push(s);
+          });
           
-          if (fbConfig && fbConfig.startsWith('{')) {
+          if (db) {
             try {
-              const app = getApps().length === 0 ? initializeApp(JSON.parse(fbConfig)) : getApps()[0];
-              const firestore = getFirestore(app);
-              const batch = writeBatch(firestore);
-              
-              students.forEach((st, idx) => {
-                const docRef = doc(firestore, collName, idx.toString());
+              const batch = writeBatch(db);
+              toAdd.forEach(st => {
+                const docRef = doc(db, collName, st.id);
                 batch.set(docRef, st);
               });
               await batch.commit();
             } catch (err) {
-              console.error("Firestore 동기화 실패:", err);
+              console.error("Firestore 학생 추가 실패:", err);
             }
           }
           localStorage.setItem('local_students', JSON.stringify(students));
+          alert(`새로운 학생 ${toAdd.length}명이 추가되었습니다.`);
         }
+      } else {
+        alert("설정이 저장되었습니다.");
       }
 
       closeModal();
@@ -605,20 +680,18 @@
       const codeRegex = /[A-Za-z0-9]{9}/; 
       const nameRegex = /[가-힣]{2,5}/;    
 
-      lines.forEach((line, index) => {
+      lines.forEach(line => {
         const codeMatch = line.match(codeRegex);
         const nameMatch = line.match(nameRegex);
 
         if (codeMatch && nameMatch) {
           result.push({
-            id: index.toString(),
             name: nameMatch[0],
             code: codeMatch[0],
             role: '',
             cookies: 0,
             rewarded: false,
-            checks: {},
-            order: index
+            checks: {}
           });
         }
       });
