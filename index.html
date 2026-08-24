@@ -91,6 +91,9 @@
             </p>
         </div>
         <div class="flex gap-3">
+            <button onclick="refreshCookies()" class="btn-press bg-orange-400 text-white px-4 h-14 rounded-2xl text-xl font-bold flex justify-center items-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i> 쿠키 갱신
+            </button>
             <button onclick="openModal('addStudentModal')" class="btn-press bg-green-400 text-white w-14 h-14 rounded-full text-2xl flex justify-center items-center">
                 <i class="fa-solid fa-plus"></i>
             </button>
@@ -150,6 +153,10 @@
                         <div>
                             <label class="block text-sm font-bold text-gray-600 mb-1">Firebase 설정 (JSON)</label>
                             <textarea id="firebaseConfigInput" class="w-full h-24 border-2 border-gray-300 rounded-xl p-2 text-sm focus:border-gray-400 outline-none resize-none font-mono" placeholder='{&#10;  "apiKey": "...",&#10;  "authDomain": "...",&#10;  "projectId": "..."&#10;}'></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Firebase 컬렉션 이름 (중복 방지)</label>
+                            <input type="text" id="fbCollectionInput" class="w-full border-2 border-gray-300 rounded-xl p-2 text-sm focus:border-gray-400 outline-none" placeholder="예: class_roles_2026">
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-gray-600 mb-1">다했니 API 키 (선택)</label>
@@ -215,8 +222,10 @@
                     if (!auth.currentUser) return;
                     
                     window.appState.userId = auth.currentUser.uid;
-                    // 데이터 동기화를 위한 공통 문서 경로 설정
-                    window.appState.docRef = doc(db, 'artifacts', 'custom-class', 'public', 'data', 'roles');
+                    
+                    const collectionName = localStorage.getItem('customFbCollection') || 'class_roles_2026';
+                    // 데이터 동기화를 위한 커스텀 컬렉션 경로 설정
+                    window.appState.docRef = doc(db, collectionName, 'class_data');
                     
                     isFirebaseReady = true;
                     document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-cloud text-green-500"></i> 실시간 동기화 켜짐`;
@@ -338,7 +347,12 @@
                         </div>
                         <div class="flex-1 overflow-hidden">
                             <h3 class="text-3xl font-bold text-gray-800 truncate">${student.name}</h3>
-                            <p class="text-base text-cookie-btn font-bold truncate"><i class="fa-solid fa-tag mr-1"></i>${student.role || '역할 미정'}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <p class="text-base text-cookie-btn font-bold truncate"><i class="fa-solid fa-tag mr-1"></i>${student.role || '역할 미정'}</p>
+                                <span class="text-sm bg-orange-100 text-orange-600 px-2 py-1 rounded-full font-bold whitespace-nowrap">
+                                    🍪 ${student.cookieCount !== undefined ? student.cookieCount + '개' : '?개'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                     
@@ -397,6 +411,7 @@
                 document.getElementById('studentNameInput').focus();
             } else if (id === 'settingsModal') {
                 document.getElementById('firebaseConfigInput').value = localStorage.getItem('customFirebaseConfig') || '';
+                document.getElementById('fbCollectionInput').value = localStorage.getItem('customFbCollection') || 'class_roles_2026';
                 document.getElementById('apiKeyInput').value = localStorage.getItem('customApiKey') || '';
             }
         }
@@ -526,6 +541,7 @@
 
         window.saveSyncSettings = function() {
             const configStr = document.getElementById('firebaseConfigInput').value.trim();
+            const collectionName = document.getElementById('fbCollectionInput').value.trim();
             const apiKey = document.getElementById('apiKeyInput').value.trim();
             
             if (configStr) {
@@ -540,6 +556,12 @@
                 localStorage.removeItem('customFirebaseConfig');
             }
             
+            if (collectionName) {
+                localStorage.setItem('customFbCollection', collectionName);
+            } else {
+                localStorage.removeItem('customFbCollection');
+            }
+            
             if (apiKey) {
                 localStorage.setItem('customApiKey', apiKey);
             } else {
@@ -549,6 +571,36 @@
             showToast('설정이 저장되었습니다. 새로고침됩니다.', 'success');
             setTimeout(() => {
                 location.reload();
+            }, 1000);
+        }
+
+        window.refreshCookies = function() {
+            const apiKey = localStorage.getItem('customApiKey');
+            if (!apiKey) {
+                showToast("설정(⚙️)에서 다했니 API 키를 먼저 입력해주세요!", "error");
+                return;
+            }
+            
+            showToast("쿠키 정보를 불러오는 중...", "info");
+            
+            const btn = document.querySelector('button[onclick="refreshCookies()"]');
+            if(btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50');
+            }
+
+            // 다했니 API 시뮬레이션 (1초 후 모든 학생 쿠키 랜덤 갱신)
+            setTimeout(() => {
+                const newStudents = [...window.appState.students];
+                newStudents.forEach(student => {
+                    student.cookieCount = Math.floor(Math.random() * 50) + 1;
+                });
+                syncToServer(newStudents);
+                showToast("모든 학생의 쿠키 업데이트 완료!", "success");
+                if(btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50');
+                }
             }, 1000);
         }
 
