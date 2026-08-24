@@ -142,12 +142,14 @@
       width: 140px;
       background: transparent;
       outline: none;
+      transition: all 0.2s;
     }
 
     .role-input:focus {
       border-color: var(--primary);
       background-color: #FFF;
       color: var(--text);
+      box-shadow: 0 0 5px rgba(255, 139, 139, 0.4);
     }
 
     .cookie-badge {
@@ -189,6 +191,7 @@
       background-color: var(--primary);
       color: white;
       box-shadow: 0 2px 4px rgba(255, 139, 139, 0.4);
+      transform: scale(1.05);
     }
 
     .card-bottom {
@@ -238,59 +241,21 @@
       padding: 24px;
     }
 
-    .modal h2 {
-      margin-top: 0;
-      color: var(--primary-dark);
-      font-size: 22px;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 15px;
-      margin-bottom: 6px;
-      color: var(--text);
-    }
-
+    .modal h2 { margin-top: 0; color: var(--primary-dark); font-size: 22px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 15px; margin-bottom: 6px; color: var(--text); }
     .form-group input, .form-group textarea {
-      width: 100%;
-      padding: 10px 12px;
-      border: 2px solid var(--secondary);
-      border-radius: 12px;
-      font-family: inherit;
-      font-size: 14px;
-      outline: none;
+      width: 100%; padding: 10px 12px; border: 2px solid var(--secondary);
+      border-radius: 12px; font-family: inherit; font-size: 14px; outline: none;
     }
-
-    .form-group input:focus, .form-group textarea:focus {
-      border-color: var(--primary);
-    }
-
+    .form-group input:focus, .form-group textarea:focus { border-color: var(--primary); }
     .helper-box {
-      background-color: #F0F7FF;
-      border-left: 4px solid #4D96FF;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #333;
-      margin-bottom: 8px;
-      line-height: 1.4;
+      background-color: #F0F7FF; border-left: 4px solid #4D96FF;
+      padding: 8px 12px; border-radius: 6px; font-size: 13px; color: #333;
+      margin-bottom: 8px; line-height: 1.4;
     }
-
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .modal-actions button {
-      flex: 1;
-      padding: 12px;
-      font-size: 16px;
-    }
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-actions button { flex: 1; padding: 12px; font-size: 16px; }
   </style>
 </head>
 <body>
@@ -358,9 +323,18 @@
     let students = [];
     let collectionName = localStorage.getItem('cfg_collection') || 'class_roles_2026';
     let adminPwd = localStorage.getItem('cfg_admin_pwd') || '0000';
+    let isEditingRole = false; // 입력 중일 때 렌더링 충돌을 막기 위한 플래그
 
     window.addEventListener('DOMContentLoaded', () => {
       initFirebaseOrLocal();
+    });
+
+    // 💡 [로컬 환경 팁] 다른 탭에서 변경된 사항을 이 탭에도 즉시 반영
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'local_students' && !db && !isEditingRole) {
+        students = JSON.parse(e.newValue || '[]');
+        render();
+      }
     });
 
     function initFirebaseOrLocal() {
@@ -374,6 +348,7 @@
           const app = getApps().length === 0 ? initializeApp(config) : getApps()[0];
           db = getFirestore(app);
           
+          // 실시간 Firebase 연동 리스너
           onSnapshot(collection(db, collectionName), (snapshot) => {
             if (snapshot.empty) {
               loadLocalFallback();
@@ -384,7 +359,10 @@
               });
               list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
               students = list;
-              render();
+              // 선생님이 1인1역을 타자로 치고 있을 때는 화면 전체 새로고침(방해) 방지
+              if (!isEditingRole) { 
+                render();
+              }
             }
           }, (err) => {
             console.warn("Firebase 연결 오류, 로컬 모드로 전환합니다:", err);
@@ -405,7 +383,7 @@
       } else {
         students = []; 
       }
-      render();
+      if (!isEditingRole) render();
     }
 
     function render() {
@@ -424,9 +402,11 @@
         let dayBtns = '';
         daysKey.forEach((k, dIdx) => {
           const isChecked = st.checks && st.checks[k];
+          // 요일 버튼 클릭 시 즉시 실시간 동기화 발생
           dayBtns += `<button class="day-btn ${isChecked ? 'active' : ''}" onclick="toggleDay(${idx}, '${k}')">${daysLabel[dIdx]}</button>`;
         });
 
+        // 역할 입력 시 엔터(Enter)를 치거나 바깥을 누르면 즉시 동기화 되도록 이벤트 설정
         card.innerHTML = `
           <div class="card-top">
             <div>
@@ -434,7 +414,10 @@
                 <h3 class="student-name">${st.name}</h3>
                 <button class="delete-btn" onclick="deleteStudent(${idx})" title="학생 삭제">🗑️</button>
               </div>
-              <input type="text" class="role-input" value="${st.role || ''}" placeholder="1인 1역 입력" onchange="updateRole(${idx}, this.value)">
+              <input type="text" class="role-input" value="${st.role || ''}" placeholder="1인 1역 입력" 
+                onfocus="setEditing(true)" 
+                onblur="setEditing(false); updateRole(${idx}, this.value)" 
+                onkeydown="if(event.key === 'Enter') this.blur();">
             </div>
             <div class="cookie-badge">
               🍪 <span>${st.cookies !== undefined ? st.cookies : '0'}</span>개
@@ -453,7 +436,12 @@
       });
     }
 
-    // 💡 학생 개별 삭제 기능 (비밀번호 보호)
+    window.setEditing = (flag) => {
+      isEditingRole = flag;
+      // 편집이 끝났을 때(포커스를 잃었을 때) 최신 데이터로 화면 갱신
+      if (!flag) setTimeout(render, 100); 
+    };
+
     window.deleteStudent = async (idx) => {
       const inputPwd = prompt("해당 학생을 삭제하시겠습니까?\n관리자 비밀번호 4자리를 입력하세요.");
       if (inputPwd === null) return;
@@ -463,7 +451,7 @@
       }
 
       const st = students[idx];
-      students.splice(idx, 1); // 배열에서 제거
+      students.splice(idx, 1); 
 
       if (db) {
         try {
@@ -484,10 +472,12 @@
       target.checks[day] = !target.checks[day];
 
       await syncStudent(idx, { checks: target.checks });
-      render();
+      // render()는 Firestore 리스너가 감지해서 자동으로 호출하므로 로컬일때만 수동 호출
+      if(!db) render();
     };
 
     window.updateRole = async (idx, roleText) => {
+      if (students[idx].role === roleText) return; // 내용이 안바뀌었으면 무시
       students[idx].role = roleText;
       await syncStudent(idx, { role: roleText });
     };
@@ -496,9 +486,10 @@
       const target = students[idx];
       target.rewarded = !target.rewarded;
       await syncStudent(idx, { rewarded: target.rewarded });
-      render();
+      if(!db) render();
     };
 
+    // 💡 변경된 정보를 Firebase와 로컬 저장소에 병합 저장하는 핵심 기능
     async function syncStudent(idx, partialData) {
       if (db) {
         const docId = students[idx].id || idx.toString();
@@ -509,7 +500,6 @@
       }
     }
 
-    // 💡 주간 초기화 기능 (비밀번호 보호)
     window.resetWeeklyChecks = async () => {
       if (students.length === 0) return;
       
@@ -634,12 +624,11 @@
       localStorage.setItem('cfg_firebase', fbConfig);
       localStorage.setItem('cfg_collection', collName);
       localStorage.setItem('cfg_admin_pwd', pwd);
-      adminPwd = pwd; // 전역 변수 업데이트
+      adminPwd = pwd; 
 
       if (pasteText) {
         const newStudents = parseDahandinText(pasteText);
         
-        // 기존 명단 유지하면서 새로운 학생만 추가 (코드 기준)
         const existingCodes = students.map(s => s.code);
         const toAdd = newStudents.filter(s => !existingCodes.includes(s.code));
         
