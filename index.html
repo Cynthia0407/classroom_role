@@ -142,6 +142,23 @@
             </div>
             
             <div class="flex-1 overflow-y-auto space-y-6 pr-2">
+                <!-- 연동 설정 -->
+                <div class="bg-gray-50 p-4 rounded-2xl border-2 border-gray-200">
+                    <h3 class="text-xl font-bold text-gray-700 mb-2"><i class="fa-solid fa-link mr-1"></i> 클라우드 및 API 설정</h3>
+                    <p class="text-sm text-gray-600 mb-3">설정값을 입력하면 다른 기기와 실시간 동기화됩니다.</p>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-600 mb-1">Firebase 설정 (JSON)</label>
+                            <textarea id="firebaseConfigInput" class="w-full h-24 border-2 border-gray-300 rounded-xl p-2 text-sm focus:border-gray-400 outline-none resize-none font-mono" placeholder='{&#10;  "apiKey": "...",&#10;  "authDomain": "...",&#10;  "projectId": "..."&#10;}'></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-600 mb-1">다했니 API 키 (선택)</label>
+                            <input type="text" id="apiKeyInput" class="w-full border-2 border-gray-300 rounded-xl p-2 text-sm focus:border-gray-400 outline-none" placeholder="API 키를 입력하세요">
+                        </div>
+                        <button onclick="saveSyncSettings()" class="btn-press w-full bg-gray-700 text-white py-3 rounded-xl text-md font-bold mt-2">설정 저장 및 새로고침</button>
+                    </div>
+                </div>
+
                 <!-- 이번 주 초기화 -->
                 <div class="bg-red-50 p-4 rounded-2xl border-2 border-red-200">
                     <h3 class="text-xl font-bold text-red-600 mb-2"><i class="fa-solid fa-rotate-right mr-1"></i> 이번 주 기록 초기화</h3>
@@ -170,25 +187,8 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Fallback for environment variables
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-class-board';
-        const fbConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
-        const initToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
         let app, db, auth;
         let isFirebaseReady = false;
-
-        try {
-            const firebaseConfig = JSON.parse(fbConfigStr);
-            if (Object.keys(firebaseConfig).length > 0) {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                isFirebaseReady = true;
-            }
-        } catch (e) {
-            console.error("Firebase config parsing error:", e);
-        }
 
         // State Management
         window.appState = {
@@ -201,30 +201,35 @@
         const dayLabels = ['월', '화', '수', '목', '금'];
 
         async function initAuth() {
-            if (!isFirebaseReady) {
-                document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-yellow-500"></i> 오프라인 모드 (클라우드 미연결)`;
-                loadLocalData();
-                renderGrid();
-                return;
-            }
-
-            try {
-                if (initToken) {
-                    await signInWithCustomToken(auth, initToken);
-                } else {
+            const customConfigStr = localStorage.getItem('customFirebaseConfig');
+            
+            if (customConfigStr) {
+                try {
+                    const customConfig = JSON.parse(customConfigStr);
+                    app = initializeApp(customConfig, "TeacherApp");
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    
                     await signInAnonymously(auth);
+                    
+                    if (!auth.currentUser) return;
+                    
+                    window.appState.userId = auth.currentUser.uid;
+                    // 데이터 동기화를 위한 공통 문서 경로 설정
+                    window.appState.docRef = doc(db, 'artifacts', 'custom-class', 'public', 'data', 'roles');
+                    
+                    isFirebaseReady = true;
+                    document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-cloud text-green-500"></i> 실시간 동기화 켜짐`;
+                    
+                    startSync();
+                } catch (error) {
+                    console.error("Custom Firebase init error:", error);
+                    document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-500"></i> 설정 오류 (오프라인)`;
+                    loadLocalData();
+                    renderGrid();
                 }
-                
-                window.appState.userId = auth.currentUser.uid;
-                // 공용(public) 데이터 경로 사용: 같은 URL을 열면 같은 데이터를 보게 됨
-                window.appState.docRef = doc(db, 'artifacts', appId, 'public', 'data', 'classData', 'roles');
-                
-                document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-cloud text-green-500"></i> 실시간 동기화 중`;
-                
-                startSync();
-            } catch (error) {
-                console.error("Auth error:", error);
-                document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-500"></i> 동기화 오류`;
+            } else {
+                document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-yellow-500"></i> 오프라인 모드 (설정 필요)`;
                 loadLocalData();
                 renderGrid();
             }
@@ -387,7 +392,13 @@
                 modal.firstElementChild.classList.remove('scale-95');
                 modal.firstElementChild.classList.add('scale-100');
             }, 10);
-            if(id === 'addStudentModal') document.getElementById('studentNameInput').focus();
+            
+            if(id === 'addStudentModal') {
+                document.getElementById('studentNameInput').focus();
+            } else if (id === 'settingsModal') {
+                document.getElementById('firebaseConfigInput').value = localStorage.getItem('customFirebaseConfig') || '';
+                document.getElementById('apiKeyInput').value = localStorage.getItem('customApiKey') || '';
+            }
         }
 
         window.closeModal = function(id) {
@@ -511,6 +522,34 @@
             syncToServer(newStudents);
             showToast('모든 기록이 초기화되었습니다.', 'success');
             closeModal('settingsModal');
+        }
+
+        window.saveSyncSettings = function() {
+            const configStr = document.getElementById('firebaseConfigInput').value.trim();
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+            
+            if (configStr) {
+                try {
+                    JSON.parse(configStr); // JSON 문법 검사
+                } catch (e) {
+                    showToast('Firebase 설정은 유효한 JSON 형식이어야 합니다.', 'error');
+                    return;
+                }
+                localStorage.setItem('customFirebaseConfig', configStr);
+            } else {
+                localStorage.removeItem('customFirebaseConfig');
+            }
+            
+            if (apiKey) {
+                localStorage.setItem('customApiKey', apiKey);
+            } else {
+                localStorage.removeItem('customApiKey');
+            }
+            
+            showToast('설정이 저장되었습니다. 새로고침됩니다.', 'success');
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
         }
 
         // Utility
