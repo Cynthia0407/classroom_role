@@ -1,10 +1,73 @@
 <!-- ... existing code ... -->
-    // 💡수정된 핵심 기능: 자동 갱신 모드 (isSilent 파라미터 추가)
-    window.refreshBoard = async (isSilent = false) => {
+  <header>
+    <h1>📋 1인 1역 보드</h1>
+    <div class="header-btns">
+      <button class="btn btn-refresh" onclick="refreshBoard()">🔄 새로고침</button>
+      <button class="btn btn-white" onclick="resetWeeklyChecks()">🧹 주간 초기화</button>
+      <button class="btn btn-white" onclick="openModal()">⚙️ 설정</button>
+<!-- ... existing code ... -->
+    const daysLabel = ['월', '화', '수', '목', '금'];
+
+    let db = null;
+    let students = [];
+    let collectionName = localStorage.getItem('cfg_collection') || 'class_roles_2026';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initFirebaseOrLocal();
+    });
+
+    function initFirebaseOrLocal() {
+<!-- ... existing code ... -->
+          onSnapshot(collection(db, collectionName), (snapshot) => {
+            if (snapshot.empty) {
+              loadLocalFallback();
+            } else {
+              const list = [];
+              snapshot.forEach(docSnap => {
+                list.push({ id: docSnap.id, ...docSnap.data() });
+              });
+              list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+              students = list;
+              render();
+            }
+          }, (err) => {
+            console.warn("Firebase 연결 오류, 로컬 모드로 전환합니다:", err);
+            loadLocalFallback();
+          });
+          return;
+        } catch (e) {
+          console.error("Firebase 초기화 에러:", e);
+        }
+      }
+      loadLocalFallback();
+    }
+
+    function loadLocalFallback() {
+      const saved = localStorage.getItem('local_students');
+      if (saved) {
+        students = JSON.parse(saved);
+      } else {
+        students = []; 
+      }
+      render();
+    }
+
+    function render() {
+      const grid = document.getElementById('studentGrid');
+<!-- ... existing code ... -->
+        await batch.commit();
+      } else {
+        localStorage.setItem('local_students', JSON.stringify(students));
+      }
+      render();
+    };
+
+    // 💡수정된 핵심 기능: 수동 갱신 (버튼 클릭 시에만 작동) 및 데이터 탐색 강화
+    window.refreshBoard = async () => {
       const apiKey = localStorage.getItem('cfg_api_key');
       
       if (!apiKey) {
-        if (!isSilent) alert("설정(⚙️)에서 다했니 API Key를 먼저 입력해주세요.");
+        alert("설정(⚙️)에서 다했니 API Key를 먼저 입력해주세요.");
         return;
       }
 
@@ -15,7 +78,7 @@
       }
 
       let updatedCount = 0;
-      let cookiesChanged = false; // 최적화: 쿠키 수 변화가 있을 때만 DB에 저장
+      let cookiesChanged = false; 
       
       for (let st of students) {
         if (!st.code) continue;
@@ -27,29 +90,53 @@
           
           if (res.ok) {
             const data = await res.json();
-            
-            // 🔥 디버깅용: 실제 서버에서 어떤 데이터가 오는지 콘솔에 출력합니다. (F12 눌러서 확인 가능)
             console.log(`[${st.name}] 다했니 서버 응답 원본:`, data);
 
-            // API 문서와 다르게 응답할 경우를 대비하여 가능한 모든 필드명을 검사합니다.
-            const newCookies = data.totalCookie ?? data.cookie ?? data.cookies ?? data.cookieCount ?? data.totalCookies ?? st.cookies;
+            // API 응답 데이터가 'data' 객체 안에 감싸져 있는 경우를 대비한 방어 코드
+            const payload = data.data ? data.data : data;
+            
+            // 다양한 변수명 모두 확인
+            const newCookies = payload.totalCookie ?? payload.cookie ?? payload.cookies ?? payload.cookieCount ?? payload.totalCookies ?? st.cookies;
             
             if (st.cookies !== newCookies) {
               st.cookies = newCookies;
               cookiesChanged = true;
             }
             updatedCount++;
-            render(); // 실시간으로 한명씩 갱신되는 애니메이션 효과를 위해 즉시 렌더링
+            render(); 
           } else {
              console.warn(`[${st.name}] 통신 실패 (상태코드: ${res.status})`);
           }
         } catch (e) {
-          console.error(`[${st.name}] 쿠키 조회 에러:`, e);
+          console.warn(`${st.name} 쿠키 조회 실패:`, e);
         }
         
-        // Rate Limit (초당 5건 제한) 우회: 한 명 조회 후 0.25초 대기
         await new Promise(resolve => setTimeout(resolve, 250));
       }
 
-      // 변경사항이 있을 때만 서버에 동기화
+      if (cookiesChanged) {
+        if (db) {
+          const batch = writeBatch(db);
+          students.forEach((st, idx) => {
+            const docId = st.id || idx.toString();
+            batch.set(doc(db, collectionName, docId), { cookies: st.cookies }, { merge: true });
+          });
+          await batch.commit();
+        } else {
+          localStorage.setItem('local_students', JSON.stringify(students));
+        }
+      }
+
+      if (refreshBtn) {
+        refreshBtn.innerHTML = "🔄 새로고침";
+        refreshBtn.disabled = false;
+      }
+      
+      alert(`새로고침 완료! (총 ${students.length}명 중 ${updatedCount}명 쿠키 업데이트)`);
+    };
+
+    window.openModal = () => {
 <!-- ... existing code ... -->
+```
+
+이제 **자동 갱신은 작동하지 않으며, 선생님이 직접 주황색 [새로고침] 버튼을 눌렀을 때만 정보를 가져옵니다.** 만약 버튼을 눌렀는데도 또다시 쿠키가 0개로 표시된다면, 꼭 F12(개발자 도구)를 열어서 `Console(콘솔)` 탭에 출력된 내용 중 `{ }` 괄호 안의 글자들을 알려주세요!
