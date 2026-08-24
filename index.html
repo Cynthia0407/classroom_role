@@ -91,8 +91,8 @@
             </p>
         </div>
         <div class="flex gap-3">
-            <button onclick="refreshCookies()" class="btn-press bg-orange-400 text-white px-4 h-14 rounded-2xl text-xl font-bold flex justify-center items-center gap-2">
-                <i class="fa-solid fa-rotate-right"></i> 쿠키 갱신
+            <button onclick="refreshData()" class="btn-press bg-orange-400 text-white px-4 h-14 rounded-2xl text-xl font-bold flex justify-center items-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i> 새로고침
             </button>
             <button onclick="openModal('addStudentModal')" class="btn-press bg-green-400 text-white w-14 h-14 rounded-full text-2xl flex justify-center items-center">
                 <i class="fa-solid fa-plus"></i>
@@ -193,7 +193,7 @@
     <!-- Firebase Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         let app, db, auth;
@@ -216,7 +216,6 @@
                 try {
                     const customConfig = JSON.parse(customConfigStr);
                     
-                    // 앱 중복 초기화 에러 방지
                     if (!app) {
                         app = initializeApp(customConfig, "TeacherApp-" + Date.now());
                     }
@@ -236,7 +235,6 @@
                     }
                     
                     const collectionName = localStorage.getItem('customFbCollection') || 'class_roles_2026';
-                    // 데이터 동기화를 위한 커스텀 컬렉션 경로 설정
                     window.appState.docRef = doc(db, collectionName, 'class_data');
                     
                     isFirebaseReady = true;
@@ -264,7 +262,6 @@
                     window.appState.students = docSnap.data().students || [];
                     renderGrid();
                 } else {
-                    // Document doesn't exist yet, save empty array or mock data
                     syncToServer([]);
                 }
             }, (error) => {
@@ -274,11 +271,9 @@
         }
 
         window.syncToServer = async function(studentsArray) {
-            // Update local state immediately for fast UI
             window.appState.students = studentsArray;
             renderGrid();
 
-            // Then sync to server if available
             if (isFirebaseReady && window.appState.docRef && auth.currentUser) {
                 try {
                     await setDoc(window.appState.docRef, { students: studentsArray });
@@ -287,7 +282,6 @@
                     showToast("서버 저장 실패", "error");
                 }
             } else {
-                // Fallback to memory/localStorage if offline
                 localStorage.setItem('localClassData', JSON.stringify(studentsArray));
             }
         };
@@ -297,7 +291,7 @@
             if (saved) {
                 window.appState.students = JSON.parse(saved);
             } else {
-                // Sample Data
+                // 샘플 데이터
                 window.appState.students = [
                     { id: 1, name: '김지훈', studentCode: 'A1B2C3D4E', role: '칠판 지우기', history: { mon: true, tue: true, wed: false, thu: false, fri: false }, rewardGiven: false },
                     { id: 2, name: '이수진', studentCode: 'F5G6H7I8J', role: '우유 당번', history: { mon: true, tue: true, wed: true, thu: true, fri: true }, rewardGiven: false },
@@ -321,7 +315,6 @@
             }
 
             window.appState.students.forEach(student => {
-                // Mon-Fri buttons HTML
                 let daysHtml = '<div class="flex justify-between mt-5 mb-2 w-full px-2">';
                 
                 days.forEach((dayKey, index) => {
@@ -339,7 +332,6 @@
                 });
                 daysHtml += '</div>';
 
-                // Reward toggle button
                 const rewardClass = student.rewardGiven 
                     ? 'bg-cookie-btn text-white border-cookie-btn' 
                     : 'bg-white text-gray-400 border-gray-200';
@@ -463,15 +455,16 @@
                 const index = newStudents.findIndex(s => s.id === parseInt(editId));
                 if (index > -1) {
                     newStudents[index].name = name;
-                    newStudents[index].role = role;
+                    newStudents[index].role = role; // 1인 1역 데이터 갱신
                     showToast('학생 정보가 수정되었습니다.', 'success');
-            if (!editId) {
+                }
+            } else {
                 const newId = newStudents.length > 0 ? Math.max(...newStudents.map(s => s.id)) + 1 : 1;
                 newStudents.push({
                     id: newId,
                     name: name,
                     studentCode: '',
-                    role: role,
+                    role: role, // 새로운 1인 1역 저장
                     history: { mon: false, tue: false, wed: false, thu: false, fri: false },
                     rewardGiven: false
                 });
@@ -520,10 +513,7 @@
             let startId = newStudents.length > 0 ? Math.max(...newStudents.map(s => s.id)) + 1 : 1;
 
             lines.forEach(line => {
-                // 1. 9자리 영문/숫자 코드 추출 (예: A1B2C3D4E)
                 const codeMatch = line.match(/[A-Za-z0-9]{9}/);
-                
-                // 2. 한글 2~4글자 이름 추출 (다했니 표의 불필요한 단어 제외)
                 const nameMatches = line.match(/[가-힣]{2,4}/g);
                 
                 let name = "";
@@ -537,17 +527,14 @@
                     }
                 }
 
-                // 이름이나 코드가 하나라도 존재하면 학생 추가 로직 실행
                 if (name || code) {
-                    if (!name) name = "이름모름"; // 이름을 못 찾은 경우
-                    
-                    // 이미 등록된 코드는 중복 추가 방지
+                    if (!name) name = "이름모름";
                     if (code && newStudents.find(s => s.studentCode === code)) return;
 
                     newStudents.push({
                         id: startId++,
                         name: name,
-                        studentCode: code, // 학생 코드 저장
+                        studentCode: code,
                         role: '',
                         history: { mon: false, tue: false, wed: false, thu: false, fri: false },
                         rewardGiven: false,
@@ -559,10 +546,10 @@
 
             if (addedCount > 0) {
                 syncToServer(newStudents);
-                showToast(`${addedCount}명의 학생(코드 포함)이 추가되었습니다!`, 'success');
+                showToast(`${addedCount}명의 학생이 추가되었습니다!`, 'success');
                 closeModal('settingsModal');
             } else {
-                showToast('유효한 학생 데이터(9자리 코드 등)를 찾지 못했습니다.', 'error');
+                showToast('유효한 학생 데이터를 찾지 못했습니다.', 'error');
             }
         }
 
@@ -582,31 +569,58 @@
 
         window.saveSyncSettings = function() {
             const configStr = document.getElementById('firebaseConfigInput').value.trim();
-        window.refreshCookies = async function() {
-            const apiKey = localStorage.getItem('customApiKey');
-            if (!apiKey) {
-                showToast("설정(⚙️)에서 다했니 API 키를 먼저 입력해주세요!", "error");
-                return;
+            const collectionName = document.getElementById('fbCollectionInput').value.trim();
+            const apiKey = document.getElementById('apiKeyInput').value.trim();
+
+            if (configStr) {
+                try {
+                    JSON.parse(configStr); // JSON 문법 확인
+                    localStorage.setItem('customFirebaseConfig', configStr);
+                } catch (e) {
+                    showToast('Firebase 설정이 올바른 JSON 형식이 아닙니다.', 'error');
+                    return;
+                }
+            } else {
+                localStorage.removeItem('customFirebaseConfig');
             }
+
+            localStorage.setItem('customFbCollection', collectionName || 'class_roles_2026');
+            localStorage.setItem('customApiKey', apiKey || '');
             
-            showToast("실제 다했니 서버에서 쿠키 정보를 불러오는 중...", "info");
+            showToast('설정이 저장되었습니다. 페이지가 새로고침됩니다.', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+
+        window.refreshData = async function() {
+            const apiKey = localStorage.getItem('customApiKey');
+            const btn = document.querySelector('button[onclick="refreshData()"]');
             
-            const btn = document.querySelector('button[onclick="refreshCookies()"]');
             if(btn) {
                 btn.disabled = true;
                 btn.classList.add('opacity-50');
             }
 
+            if (!apiKey) {
+                // API 키가 없을 경우 단순히 데이터를 다시 렌더링하고 동기화 상태만 새로고침
+                showToast("화면을 새로고침 했습니다.", "info");
+                renderGrid();
+                if(btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50');
+                }
+                return;
+            }
+            
+            showToast("다했니 API 및 데이터를 갱신하는 중...", "info");
+            
             const newStudents = [...window.appState.students];
             let successCount = 0;
             let failCount = 0;
 
-            // 실제 API 통신 로직 (학생 코드 순회하며 병렬 요청)
             await Promise.all(newStudents.map(async (student) => {
-                if (!student.studentCode) return; // 코드가 없는 학생은 스킵
+                if (!student.studentCode) return;
                 
                 try {
-                    // 다했니 공식 API 예상 엔드포인트
                     const response = await fetch(`https://api.dahanni.com/openapi/v1/students/${student.studentCode}/cookie`, {
                         method: 'GET',
                         headers: {
@@ -620,11 +634,9 @@
                         student.cookieCount = data.cookieCount !== undefined ? data.cookieCount : (data.cookie || 0);
                         successCount++;
                     } else {
-                        console.warn(`[${student.name}] 조회 실패 (상태 코드: ${response.status})`);
                         failCount++;
                     }
                 } catch (err) {
-                    console.error(`[${student.name}] 통신 오류 (CORS/네트워크):`, err);
                     failCount++;
                 }
             }));
@@ -632,11 +644,11 @@
             syncToServer(newStudents);
             
             if (successCount > 0) {
-                showToast(`총 ${successCount}명의 학생 쿠키 업데이트 완료! (실패: ${failCount})`, "success");
+                showToast(`총 ${successCount}명의 정보 업데이트 완료!`, "success");
             } else if (failCount > 0) {
-                showToast("API 통신 실패. 학생 코드, API 키, 또는 네트워크 설정을 확인하세요.", "error");
+                showToast("API 통신 실패 (API 키를 확인하세요).", "error");
             } else {
-                showToast("쿠키를 조회할 학생 코드(9자리)가 없습니다.", "error");
+                showToast("갱신을 완료했습니다.", "info");
             }
 
             if(btn) {
@@ -645,7 +657,6 @@
             }
         }
 
-        // Utility
         window.showToast = function(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
