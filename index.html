@@ -76,7 +76,7 @@
     }
 
     .btn-white { background-color: white; color: var(--primary-dark); }
-    .btn-refresh { background-color: var(--cookie-color); color: white; }
+    .btn-refresh { background-color: var(--cookie-color); color: white; min-width: 100px; justify-content: center; }
     .btn-refresh:hover { background-color: var(--cookie-dark); }
     .btn-refresh:disabled { background-color: #ccc; cursor: not-allowed; }
 
@@ -276,7 +276,7 @@
   <header>
     <h1>📋 1인 1역 보드</h1>
     <div class="header-btns">
-      <button class="btn btn-refresh" onclick="refreshBoard()">🔄 새로고침</button>
+      <button class="btn btn-refresh" onclick="refreshBoard(false)">🔄 새로고침</button>
       <button class="btn btn-white" onclick="resetWeeklyChecks()">🧹 주간 초기화</button>
       <button class="btn btn-white" onclick="openModal()">⚙️ 설정</button>
     </div>
@@ -330,6 +330,7 @@
     let db = null;
     let students = [];
     let collectionName = localStorage.getItem('cfg_collection') || 'class_roles_2026';
+    let isAppInitialized = false; // 앱 실행 시 최초 1회 쿠키 자동 갱신을 위한 변수
 
     window.addEventListener('DOMContentLoaded', () => {
       initFirebaseOrLocal();
@@ -356,6 +357,7 @@
               list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
               students = list;
               render();
+              triggerAutoRefresh(); // 화면이 그려진 후 자동 갱신 시도
             }
           }, (err) => {
             console.warn("Firebase 연결 오류, 로컬 모드로 전환합니다:", err);
@@ -374,17 +376,31 @@
       if (saved) {
         students = JSON.parse(saved);
       } else {
-        students = [
-          { code: "A1B2C3D4E", name: "김민준", role: "칠판 정리", cookies: 12, rewarded: false, checks: { mon: true, tue: true }, order: 0 },
-          { code: "F5G6H7I8J", name: "이서연", role: "우유 배부", cookies: 25, rewarded: false, checks: { mon: true }, order: 1 }
-        ];
+        students = []; // 초기 빈 배열로 시작하여 명단 입력을 유도
       }
       render();
+      triggerAutoRefresh(); // 화면이 그려진 후 자동 갱신 시도
+    }
+
+    // 초기 구동 시 API 키가 있으면 자동으로 쿠키 정보를 갱신 (사용자 모르게 백그라운드에서 실행)
+    function triggerAutoRefresh() {
+      if (!isAppInitialized) {
+        isAppInitialized = true;
+        const apiKey = localStorage.getItem('cfg_api_key');
+        if (apiKey && students.length > 0) {
+          setTimeout(() => refreshBoard(true), 500); 
+        }
+      }
     }
 
     function render() {
       const grid = document.getElementById('studentGrid');
       grid.innerHTML = '';
+
+      if (students.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #999;">우측 상단의 [⚙️ 설정]을 눌러 학생 명단을 추가해주세요!</div>';
+        return;
+      }
 
       students.forEach((st, idx) => {
         const card = document.createElement('div');
@@ -403,7 +419,7 @@
               <input type="text" class="role-input" value="${st.role || ''}" placeholder="1인 1역 입력" onchange="updateRole(${idx}, this.value)">
             </div>
             <div class="cookie-badge">
-              🍪 <span>${st.cookies !== undefined ? st.cookies : '-'}</span>개
+              🍪 <span>${st.cookies !== undefined ? st.cookies : '0'}</span>개
             </div>
           </div>
           <div class="days-row">
@@ -471,60 +487,73 @@
       render();
     };
 
-    // 💡수정된 핵심 기능: API 연동 및 트래픽 제한 제어
-    window.refreshBoard = async () => {
+    // 💡수정된 핵심 기능: 자동 갱신 모드 (isSilent 파라미터 추가)
+    window.refreshBoard = async (isSilent = false) => {
       const apiKey = localStorage.getItem('cfg_api_key');
       
       if (!apiKey) {
-        alert("설정(⚙️)에서 다했니 API Key를 먼저 입력해주세요.");
+        if (!isSilent) alert("설정(⚙️)에서 다했니 API Key를 먼저 입력해주세요.");
         return;
       }
 
       const refreshBtn = document.querySelector('.btn-refresh');
-      refreshBtn.innerHTML = "⏳ 갱신 중...";
-      refreshBtn.disabled = true;
+      if (refreshBtn) {
+        refreshBtn.innerHTML = "⏳ 갱신 중...";
+        refreshBtn.disabled = true;
+      }
 
       let updatedCount = 0;
+      let cookiesChanged = false; // 최적화: 쿠키 수 변화가 있을 때만 DB에 저장
       
       for (let st of students) {
         if (!st.code) continue;
         try {
-          // 1. 요청 주소 및 쿼리 파라미터 적용
           const res = await fetch(`https://api.dahandin.com/openapi/v1/get/student/total?code=${st.code}`, {
             method: 'GET',
-            // 2. 정확한 인증 헤더 적용 (X-API-Key)
             headers: { 'X-API-Key': apiKey } 
           });
           
           if (res.ok) {
             const data = await res.json();
-            // 3. API 명세에 명시된 남은 쿠키(cookies 또는 totalCookie) 값 추출
-            st.cookies = data.cookies ?? data.totalCookie ?? st.cookies;
+            const newCookies = data.cookies ?? data.totalCookie ?? st.cookies;
+            
+            if (st.cookies !== newCookies) {
+              st.cookies = newCookies;
+              cookiesChanged = true;
+            }
             updatedCount++;
+            render(); // 실시간으로 한명씩 갱신되는 애니메이션 효과를 위해 즉시 렌더링
           }
         } catch (e) {
           console.warn(`${st.name} 쿠키 조회 실패:`, e);
         }
         
-        // 4. Rate Limit (초당 5건 제한) 우회: 한 명 조회 후 0.25초 대기
+        // Rate Limit (초당 5건 제한) 우회: 한 명 조회 후 0.25초 대기
         await new Promise(resolve => setTimeout(resolve, 250));
       }
 
-      if (db) {
-        const batch = writeBatch(db);
-        students.forEach((st, idx) => {
-          const docId = st.id || idx.toString();
-          batch.set(doc(db, collectionName, docId), { cookies: st.cookies }, { merge: true });
-        });
-        await batch.commit();
-      } else {
-        localStorage.setItem('local_students', JSON.stringify(students));
+      // 변경사항이 있을 때만 서버에 동기화
+      if (cookiesChanged || !isSilent) {
+        if (db) {
+          const batch = writeBatch(db);
+          students.forEach((st, idx) => {
+            const docId = st.id || idx.toString();
+            batch.set(doc(db, collectionName, docId), { cookies: st.cookies }, { merge: true });
+          });
+          await batch.commit();
+        } else {
+          localStorage.setItem('local_students', JSON.stringify(students));
+        }
       }
 
-      render();
-      refreshBtn.innerHTML = "🔄 새로고침";
-      refreshBtn.disabled = false;
-      alert(`새로고침 완료! (총 ${students.length}명 중 ${updatedCount}명 쿠키 업데이트)`);
+      if (refreshBtn) {
+        refreshBtn.innerHTML = "🔄 새로고침";
+        refreshBtn.disabled = false;
+      }
+      
+      if (!isSilent) {
+        alert(`새로고침 완료! (총 ${students.length}명 중 ${updatedCount}명 쿠키 업데이트)`);
+      }
     };
 
     window.openModal = () => {
@@ -574,7 +603,9 @@
       }
 
       closeModal();
-      location.reload();
+      
+      // 설정 저장 후 즉시 페이지를 새로고침하여 바뀐 설정으로 자동 갱신 트리거 작동
+      location.reload(); 
     };
 
     function parseDahandinText(text) {
