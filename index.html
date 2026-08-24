@@ -38,7 +38,6 @@
             -webkit-tap-highlight-color: transparent;
         }
         
-        /* 스크롤바 숨기기 */
         ::-webkit-scrollbar {
             width: 0px;
             background: transparent;
@@ -46,21 +45,23 @@
 
         .card-shadow {
             box-shadow: 0 8px 0px 0px #FFD369, 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            transition: all 0.2s ease-in-out;
+            transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
         }
         
-        .card-shadow:active {
-            transform: translateY(4px);
-            box-shadow: 0 4px 0px 0px #FFD369, 0 5px 10px -3px rgba(0, 0, 0, 0.1);
-        }
-
         .btn-press {
-            box-shadow: 0 4px 0px 0px #cc7a36;
+            box-shadow: 0 5px 0px 0px rgba(0,0,0,0.2);
             transition: all 0.1s;
         }
         .btn-press:active {
-            transform: translateY(4px);
-            box-shadow: 0 0px 0px 0px #cc7a36;
+            transform: translateY(5px);
+            box-shadow: 0 0px 0px 0px rgba(0,0,0,0.2);
+        }
+
+        .day-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .day-btn.active {
+            transform: scale(1.1);
         }
 
         .toast {
@@ -85,13 +86,15 @@
             <h1 class="text-3xl md:text-4xl font-bold text-cookie-btn drop-shadow-md">
                 <i class="fa-solid fa-cookie-bite mr-2"></i>우리반 1인 1역
             </h1>
-            <p id="current-date-display" class="text-lg md:text-xl text-cookie-text mt-1 opacity-80"></p>
+            <p class="text-lg md:text-xl text-cookie-text mt-1 opacity-80" id="sync-status">
+                <i class="fa-solid fa-cloud-arrow-down mr-1"></i> 서버 연결 중...
+            </p>
         </div>
         <div class="flex gap-3">
-            <button onclick="openModal('addStudentModal')" class="btn-press bg-green-400 text-white w-12 h-12 rounded-full text-xl flex justify-center items-center">
+            <button onclick="openModal('addStudentModal')" class="btn-press bg-green-400 text-white w-14 h-14 rounded-full text-2xl flex justify-center items-center">
                 <i class="fa-solid fa-plus"></i>
             </button>
-            <button onclick="openModal('settingsModal')" class="btn-press bg-gray-400 text-white w-12 h-12 rounded-full text-xl flex justify-center items-center">
+            <button onclick="openModal('settingsModal')" class="btn-press bg-gray-400 text-white w-14 h-14 rounded-full text-2xl flex justify-center items-center">
                 <i class="fa-solid fa-gear"></i>
             </button>
         </div>
@@ -100,49 +103,60 @@
     <!-- Main Grid -->
     <main id="student-grid" class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
         <!-- Student cards will be injected here -->
+        <div class="text-center col-span-full py-10 text-gray-400 text-xl">
+            데이터를 불러오는 중입니다...
+        </div>
     </main>
 
     <!-- Add/Edit Student Modal -->
     <div id="addStudentModal" class="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center hidden z-50 p-4">
         <div class="bg-white rounded-3xl p-6 w-full max-w-md border-4 border-cookie-border shadow-xl transform transition-transform scale-95" id="studentModalContent">
             <div class="flex justify-between items-center mb-4">
-                <h2 id="studentModalTitle" class="text-2xl font-bold">학생 추가</h2>
-                <button onclick="closeModal('addStudentModal')" class="text-gray-400 hover:text-red-500 text-2xl"><i class="fa-solid fa-xmark"></i></button>
+                <h2 id="studentModalTitle" class="text-2xl font-bold">학생 개별 추가</h2>
+                <button onclick="closeModal('addStudentModal')" class="text-gray-400 hover:text-red-500 text-3xl p-2"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <input type="hidden" id="editStudentId" value="">
-            <div class="space-y-4">
+            <div class="space-y-5">
                 <div>
-                    <label class="block text-lg mb-1">이름</label>
-                    <input type="text" id="studentNameInput" class="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-cookie-btn outline-none" placeholder="예: 김철수">
+                    <label class="block text-lg mb-1 font-bold">이름</label>
+                    <input type="text" id="studentNameInput" class="w-full border-2 border-gray-200 rounded-xl p-4 text-xl focus:border-cookie-btn outline-none" placeholder="예: 김철수">
                 </div>
                 <div>
-                    <label class="block text-lg mb-1">담당 역할 (1인 1역)</label>
-                    <input type="text" id="studentRoleInput" class="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-cookie-btn outline-none" placeholder="예: 칠판 지우기">
+                    <label class="block text-lg mb-1 font-bold">담당 역할 (1인 1역)</label>
+                    <input type="text" id="studentRoleInput" class="w-full border-2 border-gray-200 rounded-xl p-4 text-xl focus:border-cookie-btn outline-none" placeholder="예: 칠판 지우기">
                 </div>
             </div>
-            <div class="mt-6 flex gap-3">
-                <button onclick="deleteStudent()" id="deleteStudentBtn" class="hidden btn-press bg-red-400 text-white flex-1 py-3 rounded-xl text-lg">삭제</button>
-                <button onclick="saveStudent()" class="btn-press bg-cookie-btn text-white flex-1 py-3 rounded-xl text-lg">저장하기</button>
+            <div class="mt-8 flex gap-4">
+                <button onclick="deleteStudent()" id="deleteStudentBtn" class="hidden btn-press bg-red-400 text-white flex-1 py-4 rounded-xl text-xl font-bold">삭제</button>
+                <button onclick="saveStudent()" class="btn-press bg-cookie-btn text-white flex-1 py-4 rounded-xl text-xl font-bold">저장하기</button>
             </div>
         </div>
     </div>
 
-    <!-- Settings Modal (API Key) -->
+    <!-- Settings Modal (Bulk Import & Reset) -->
     <div id="settingsModal" class="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center hidden z-50 p-4">
-        <div class="bg-white rounded-3xl p-6 w-full max-w-md border-4 border-cookie-border shadow-xl">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-lg border-4 border-cookie-border shadow-xl h-[80vh] flex flex-col">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold"><i class="fa-solid fa-key mr-2 text-yellow-500"></i>환경 설정</h2>
-                <button onclick="closeModal('settingsModal')" class="text-gray-400 hover:text-red-500 text-2xl"><i class="fa-solid fa-xmark"></i></button>
+                <h2 class="text-2xl font-bold"><i class="fa-solid fa-gear mr-2 text-gray-500"></i>학급 관리</h2>
+                <button onclick="closeModal('settingsModal')" class="text-gray-400 hover:text-red-500 text-3xl p-2"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-lg mb-1">다했니 API 키 (Dahaenni Token)</label>
-                    <input type="password" id="apiKeyInput" class="w-full border-2 border-gray-200 rounded-xl p-3 text-lg focus:border-cookie-btn outline-none" placeholder="API 키를 입력하세요">
-                    <p class="text-sm text-gray-400 mt-1">* 보상 지급 시 다했니 시스템으로 실시간 전송됩니다.</p>
+            
+            <div class="flex-1 overflow-y-auto space-y-6 pr-2">
+                <!-- 이번 주 초기화 -->
+                <div class="bg-red-50 p-4 rounded-2xl border-2 border-red-200">
+                    <h3 class="text-xl font-bold text-red-600 mb-2"><i class="fa-solid fa-rotate-right mr-1"></i> 이번 주 기록 초기화</h3>
+                    <p class="text-sm text-gray-600 mb-3">모든 학생의 월~금 체크 기록과 보상 여부를 초기화합니다. (매주 월요일 사용)</p>
+                    <button onclick="resetAllRecords()" class="btn-press w-full bg-red-400 text-white py-3 rounded-xl text-lg font-bold">전체 기록 리셋하기</button>
                 </div>
-            </div>
-            <div class="mt-6">
-                <button onclick="saveSettings()" class="btn-press w-full bg-cookie-btn text-white py-3 rounded-xl text-lg">설정 저장</button>
+
+                <!-- 일괄 붙여넣기 -->
+                <div class="bg-blue-50 p-4 rounded-2xl border-2 border-blue-200">
+                    <h3 class="text-xl font-bold text-blue-600 mb-2"><i class="fa-solid fa-users mr-1"></i> 명렬표 일괄 붙여넣기</h3>
+                    <p class="text-sm text-gray-600 mb-2">엑셀이나 메모장에서 학생 이름 명단을 복사해서 붙여넣으세요. 띄어쓰기나 줄바꿈으로 구분됩니다.</p>
+                    <p class="text-xs text-gray-500 mb-3">예시: 김철수 이영희 박민수 ...</p>
+                    <textarea id="bulkImportText" class="w-full h-32 border-2 border-blue-200 rounded-xl p-3 text-lg focus:border-blue-400 outline-none resize-none" placeholder="여기에 이름을 붙여넣으세요..."></textarea>
+                    <button onclick="bulkImportStudents()" class="btn-press w-full bg-blue-500 text-white py-3 mt-3 rounded-xl text-lg font-bold">명단 일괄 추가하기</button>
+                </div>
             </div>
         </div>
     </div>
@@ -150,127 +164,185 @@
     <!-- Toast Container -->
     <div id="toast-container" class="fixed bottom-10 left-0 right-0 flex flex-col items-center gap-2 z-50 pointer-events-none"></div>
 
-    <script>
-        // --- State Management ---
-        let appState = {
-            apiKey: '',
-            students: []
-        };
+    <!-- Firebase Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Fallback for environment variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-class-board';
+        const fbConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        const initToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // 날짜 관리를 위한 유틸리티
-        let last7Days = [];
-        let todayStr = '';
+        let app, db, auth;
+        let isFirebaseReady = false;
 
-        function initDates() {
-            const today = new Date();
-            // 로컬 타임존 기준으로 YYYY-MM-DD 포맷 생성
-            todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            
-            // 화면 상단 날짜 표시
-            const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
-            document.getElementById('current-date-display').innerText = 
-                `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 (${weekDays[today.getDay()]}요일)`;
+        try {
+            const firebaseConfig = JSON.parse(fbConfigStr);
+            if (Object.keys(firebaseConfig).length > 0) {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                isFirebaseReady = true;
+            }
+        } catch (e) {
+            console.error("Firebase config parsing error:", e);
+        }
 
-            // 최근 7일 배열 생성
-            last7Days = [];
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date(today);
-                d.setDate(today.getDate() - i);
-                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                last7Days.push({
-                    fullDate: dateStr,
-                    dayStr: `${d.getDate()}일`
-                });
+        // State Management
+        window.appState = {
+            students: [],
+            docRef: null,
+            userId: null
+        };
+
+        const days = ['mon', 'tue', 'wed', 'thu', 'fri'];
+        const dayLabels = ['월', '화', '수', '목', '금'];
+
+        async function initAuth() {
+            if (!isFirebaseReady) {
+                document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-yellow-500"></i> 오프라인 모드 (클라우드 미연결)`;
+                loadLocalData();
+                renderGrid();
+                return;
+            }
+
+            try {
+                if (initToken) {
+                    await signInWithCustomToken(auth, initToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                window.appState.userId = auth.currentUser.uid;
+                // 공용(public) 데이터 경로 사용: 같은 URL을 열면 같은 데이터를 보게 됨
+                window.appState.docRef = doc(db, 'artifacts', appId, 'public', 'data', 'classData', 'roles');
+                
+                document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-cloud text-green-500"></i> 실시간 동기화 중`;
+                
+                startSync();
+            } catch (error) {
+                console.error("Auth error:", error);
+                document.getElementById('sync-status').innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-500"></i> 동기화 오류`;
+                loadLocalData();
+                renderGrid();
             }
         }
 
-        // 초기 샘플 데이터 로드
-        function loadMockData() {
-            // 과거 날짜를 동적으로 계산하여 샘플 데이터 생성
-            const d1 = last7Days[6].fullDate; // 오늘
-            const d2 = last7Days[5].fullDate; // 어제
-            const d3 = last7Days[4].fullDate;
-            const d4 = last7Days[3].fullDate;
-            const d5 = last7Days[2].fullDate;
-            const d6 = last7Days[1].fullDate;
-            const d7 = last7Days[0].fullDate;
+        function startSync() {
+            if (!window.appState.docRef) return;
 
-            appState.students = [
-                { id: 1, name: '김지훈', role: '칠판 지우기', history: { [d1]: false, [d2]: true, [d3]: true }, rewardGiven: false },
-                { id: 2, name: '이수진', role: '우유 당번', history: { [d1]: true, [d2]: true, [d3]: true, [d4]: true, [d5]: true, [d6]: true, [d7]: true }, rewardGiven: false },
-                { id: 3, name: '박민준', role: '분리수거', history: { [d1]: false }, rewardGiven: false }
-            ];
+            onSnapshot(window.appState.docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    window.appState.students = docSnap.data().students || [];
+                    renderGrid();
+                } else {
+                    // Document doesn't exist yet, save empty array or mock data
+                    syncToServer([]);
+                }
+            }, (error) => {
+                console.error("Snapshot error:", error);
+                showToast("데이터 동기화 중 오류가 발생했습니다.", "error");
+            });
         }
 
-        // --- UI Rendering ---
-        function renderGrid() {
+        window.syncToServer = async function(studentsArray) {
+            // Update local state immediately for fast UI
+            window.appState.students = studentsArray;
+            renderGrid();
+
+            // Then sync to server if available
+            if (isFirebaseReady && window.appState.docRef && auth.currentUser) {
+                try {
+                    await setDoc(window.appState.docRef, { students: studentsArray });
+                } catch (error) {
+                    console.error("Save error:", error);
+                    showToast("서버 저장 실패", "error");
+                }
+            } else {
+                // Fallback to memory/localStorage if offline
+                localStorage.setItem('localClassData', JSON.stringify(studentsArray));
+            }
+        };
+
+        function loadLocalData() {
+            const saved = localStorage.getItem('localClassData');
+            if (saved) {
+                window.appState.students = JSON.parse(saved);
+            } else {
+                // Sample Data
+                window.appState.students = [
+                    { id: 1, name: '김지훈', role: '칠판 지우기', history: { mon: true, tue: true, wed: false, thu: false, fri: false }, rewardGiven: false },
+                    { id: 2, name: '이수진', role: '우유 당번', history: { mon: true, tue: true, wed: true, thu: true, fri: true }, rewardGiven: false },
+                    { id: 3, name: '박민준', role: '분리수거', history: { mon: false, tue: false, wed: false, thu: false, fri: false }, rewardGiven: false }
+                ];
+            }
+        }
+
+        window.renderGrid = function() {
             const grid = document.getElementById('student-grid');
             grid.innerHTML = '';
 
-            appState.students.forEach(student => {
-                const isTodayDone = student.history && student.history[todayStr] === true;
+            if(window.appState.students.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full py-16 text-center">
+                        <div class="text-6xl mb-4">📭</div>
+                        <h3 class="text-2xl font-bold text-gray-500 mb-2">아직 등록된 학생이 없습니다.</h3>
+                        <p class="text-gray-400">우측 상단의 톱니바퀴나 + 버튼을 눌러 학생을 추가해보세요!</p>
+                    </div>`;
+                return;
+            }
+
+            window.appState.students.forEach(student => {
+                // Mon-Fri buttons HTML
+                let daysHtml = '<div class="flex justify-between mt-5 mb-2 w-full px-2">';
                 
-                // 최근 7일 기록 HTML 생성
-                let historyHtml = '<div class="flex justify-between mt-4 mb-2">';
-                let totalCompleted = 0;
-                
-                last7Days.forEach(dayInfo => {
-                    const done = student.history && student.history[dayInfo.fullDate] === true;
-                    if(done) totalCompleted++;
+                days.forEach((dayKey, index) => {
+                    const isDone = student.history && student.history[dayKey] === true;
+                    const bgClass = isDone ? 'bg-green-400 shadow-[0_4px_0_0_#4ade80]' : 'bg-gray-200 shadow-[0_4px_0_0_#d1d5db]';
+                    const textClass = isDone ? 'text-white' : 'text-gray-500';
+                    const icon = isDone ? '<i class="fa-solid fa-check"></i>' : dayLabels[index];
                     
-                    const isToday = dayInfo.fullDate === todayStr;
-                    const circleColor = done ? 'bg-green-400' : 'bg-gray-200';
-                    const ring = isToday ? 'ring-2 ring-cookie-btn ring-offset-1' : '';
-                    
-                    historyHtml += `
-                        <div class="flex flex-col items-center">
-                            <div class="w-6 h-6 rounded-full ${circleColor} ${ring} flex justify-center items-center text-white text-xs">
-                                ${done ? '<i class="fa-solid fa-check"></i>' : ''}
-                            </div>
-                            <span class="text-[10px] mt-1 text-gray-500">${dayInfo.dayStr}</span>
-                        </div>
+                    daysHtml += `
+                        <button onclick="toggleDay(${student.id}, '${dayKey}')" 
+                                class="day-btn w-12 h-12 rounded-full ${bgClass} ${textClass} text-lg font-bold flex justify-center items-center active:translate-y-1 active:shadow-none">
+                            ${icon}
+                        </button>
                     `;
                 });
-                historyHtml += '</div>';
+                daysHtml += '</div>';
 
-                // 보상 버튼 상태 결정
-                let rewardBtnHtml = '';
-                if (student.rewardGiven) {
-                    rewardBtnHtml = `<button disabled class="w-full bg-gray-200 text-gray-500 py-2 rounded-xl text-sm font-bold flex justify-center items-center gap-2"><i class="fa-solid fa-gift"></i> 보상 완료됨</button>`;
-                } else if (totalCompleted >= 5) {
-                    // 예시: 7일 중 5일 이상 완료시 보상 활성화
-                    rewardBtnHtml = `<button onclick="giveReward(${student.id})" class="btn-press w-full bg-yellow-400 text-white py-2 rounded-xl text-sm font-bold flex justify-center items-center gap-2"><i class="fa-solid fa-gift"></i> 다했니 보상하기!</button>`;
-                } else {
-                    rewardBtnHtml = `<button disabled class="w-full bg-gray-100 text-gray-400 py-2 rounded-xl text-sm font-bold flex justify-center items-center gap-2">보상까지 ${5 - totalCompleted}일 남음</button>`;
-                }
+                // Reward toggle button
+                const rewardClass = student.rewardGiven 
+                    ? 'bg-cookie-btn text-white border-cookie-btn' 
+                    : 'bg-white text-gray-400 border-gray-200';
+                const rewardIcon = student.rewardGiven ? '<i class="fa-solid fa-gift mr-2"></i> 보상 완료' : '<i class="fa-solid fa-gift mr-2"></i> 보상 대기';
 
-                // 카드 HTML 조합
                 const card = document.createElement('div');
                 card.className = 'card-shadow bg-white rounded-3xl border-4 border-cookie-border p-5 flex flex-col relative';
                 
                 card.innerHTML = `
-                    <!-- 수정 버튼 -->
-                    <button onclick="editStudent(${student.id})" class="absolute top-4 right-4 text-gray-300 hover:text-gray-500">
+                    <button onclick="editStudent(${student.id})" class="absolute top-4 right-4 w-10 h-10 flex justify-center items-center text-gray-300 hover:text-cookie-btn text-xl transition-colors">
                         <i class="fa-solid fa-pen"></i>
                     </button>
                     
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="w-12 h-12 bg-blue-100 rounded-full flex justify-center items-center text-2xl">
+                    <div class="flex items-center gap-4 mb-2">
+                        <div class="w-14 h-14 bg-blue-100 rounded-full flex justify-center items-center text-3xl shrink-0">
                             👦
                         </div>
-                        <div>
-                            <h3 class="text-2xl font-bold text-gray-800">${student.name}</h3>
-                            <p class="text-sm text-cookie-btn font-bold"><i class="fa-solid fa-tag mr-1"></i>${student.role}</p>
+                        <div class="flex-1 overflow-hidden">
+                            <h3 class="text-3xl font-bold text-gray-800 truncate">${student.name}</h3>
+                            <p class="text-base text-cookie-btn font-bold truncate"><i class="fa-solid fa-tag mr-1"></i>${student.role || '역할 미정'}</p>
                         </div>
                     </div>
                     
-                    ${historyHtml}
+                    ${daysHtml}
 
-                    <div class="mt-auto pt-4 border-t-2 border-dashed border-gray-100 space-y-3">
-                        <button onclick="toggleToday(${student.id})" class="btn-press w-full ${isTodayDone ? 'bg-cookie-btn' : 'bg-gray-200 text-gray-600'} text-white py-4 rounded-2xl text-xl font-bold transition-colors duration-300 flex justify-center items-center gap-2">
-                            ${isTodayDone ? '<i class="fa-solid fa-circle-check"></i> 오늘 완료!' : '<i class="fa-regular fa-circle"></i> 오늘 했나요? 터치!'}
+                    <div class="mt-auto pt-6">
+                        <button onclick="toggleReward(${student.id})" class="btn-press w-full py-3 rounded-2xl text-xl font-bold border-4 transition-colors flex justify-center items-center ${rewardClass}">
+                            ${rewardIcon}
                         </button>
-                        ${rewardBtnHtml}
                     </div>
                 `;
                 
@@ -278,68 +350,52 @@
             });
         }
 
-        // --- Interactions ---
-        function toggleToday(studentId) {
-            const student = appState.students.find(s => s.id === studentId);
-            if (!student) return;
-
-            if (!student.history) student.history = {};
+        window.toggleDay = function(studentId, dayKey) {
+            const newStudents = [...window.appState.students];
+            const studentIndex = newStudents.findIndex(s => s.id === studentId);
             
-            // 토글
-            const wasDone = student.history[todayStr] === true;
-            student.history[todayStr] = !wasDone;
-            
-            if (!wasDone) {
-                showToast(`${student.name} 학생의 오늘 역할을 완료 처리했습니다! 🎉`, 'success');
+            if (studentIndex > -1) {
+                const currentStatus = newStudents[studentIndex].history[dayKey];
+                newStudents[studentIndex].history[dayKey] = !currentStatus;
+                
+                if (!currentStatus) {
+                    showToast(`${newStudents[studentIndex].name} - 역할 완료! 👏`, 'success');
+                }
+                
+                syncToServer(newStudents);
             }
-
-            renderGrid();
         }
 
-        function giveReward(studentId) {
-            const student = appState.students.find(s => s.id === studentId);
-            if (!student) return;
-
-            // API 연동 체크
-            if (!appState.apiKey || appState.apiKey.trim() === '') {
-                showToast('다했니 API 키가 설정되지 않았습니다. 환경설정에서 키를 입력해주세요.', 'error');
-                openModal('settingsModal');
-                return;
-            }
-
-            // Mock API 전송 (실제로는 여기서 fetch 실행)
-            showToast(`🔄 다했니 API로 ${student.name} 학생 보상 전송 중...`, 'info');
+        window.toggleReward = function(studentId) {
+            const newStudents = [...window.appState.students];
+            const studentIndex = newStudents.findIndex(s => s.id === studentId);
             
-            // 1초 후 성공 처리 시뮬레이션
-            setTimeout(() => {
-                student.rewardGiven = true;
-                showToast(`✅ ${student.name} 학생에게 다했니 보상이 지급되었습니다!`, 'success');
-                renderGrid();
-            }, 1000);
+            if (studentIndex > -1) {
+                newStudents[studentIndex].rewardGiven = !newStudents[studentIndex].rewardGiven;
+                syncToServer(newStudents);
+                
+                if(newStudents[studentIndex].rewardGiven) {
+                    showToast(`🎁 ${newStudents[studentIndex].name} 보상 체크 완료!`, 'success');
+                }
+            }
         }
 
-        // --- Modal & Form Logic ---
-        function openModal(id) {
+        window.openModal = function(id) {
             const modal = document.getElementById(id);
             modal.classList.remove('hidden');
-            // 애니메이션을 위해 약간의 딜레이
             setTimeout(() => {
                 modal.firstElementChild.classList.remove('scale-95');
                 modal.firstElementChild.classList.add('scale-100');
             }, 10);
-
-            if(id === 'addStudentModal') {
-                document.getElementById('studentNameInput').focus();
-            }
+            if(id === 'addStudentModal') document.getElementById('studentNameInput').focus();
         }
 
-        function closeModal(id) {
+        window.closeModal = function(id) {
             const modal = document.getElementById(id);
             modal.firstElementChild.classList.remove('scale-100');
             modal.firstElementChild.classList.add('scale-95');
             setTimeout(() => {
                 modal.classList.add('hidden');
-                // 리셋 폼
                 if(id === 'addStudentModal') {
                     document.getElementById('studentNameInput').value = '';
                     document.getElementById('studentRoleInput').value = '';
@@ -347,51 +403,54 @@
                     document.getElementById('deleteStudentBtn').classList.add('hidden');
                     document.getElementById('studentModalTitle').innerText = '학생 추가';
                 }
+                if(id === 'settingsModal') {
+                    document.getElementById('bulkImportText').value = '';
+                }
             }, 200);
         }
 
-        function saveStudent() {
+        window.saveStudent = function() {
             const name = document.getElementById('studentNameInput').value.trim();
             const role = document.getElementById('studentRoleInput').value.trim();
             const editId = document.getElementById('editStudentId').value;
 
-            if (!name || !role) {
-                showToast('이름과 역할을 모두 입력해주세요.', 'error');
+            if (!name) {
+                showToast('이름을 입력해주세요.', 'error');
                 return;
             }
 
+            let newStudents = [...window.appState.students];
+
             if (editId) {
-                // 수정
-                const student = appState.students.find(s => s.id === parseInt(editId));
-                if (student) {
-                    student.name = name;
-                    student.role = role;
+                const index = newStudents.findIndex(s => s.id === parseInt(editId));
+                if (index > -1) {
+                    newStudents[index].name = name;
+                    newStudents[index].role = role;
                     showToast('학생 정보가 수정되었습니다.', 'success');
                 }
             } else {
-                // 추가
-                const newId = appState.students.length > 0 ? Math.max(...appState.students.map(s => s.id)) + 1 : 1;
-                appState.students.push({
+                const newId = newStudents.length > 0 ? Math.max(...newStudents.map(s => s.id)) + 1 : 1;
+                newStudents.push({
                     id: newId,
                     name: name,
                     role: role,
-                    history: {},
+                    history: { mon: false, tue: false, wed: false, thu: false, fri: false },
                     rewardGiven: false
                 });
                 showToast('새로운 학생이 추가되었습니다.', 'success');
             }
 
+            syncToServer(newStudents);
             closeModal('addStudentModal');
-            renderGrid();
         }
 
-        function editStudent(id) {
-            const student = appState.students.find(s => s.id === id);
+        window.editStudent = function(id) {
+            const student = window.appState.students.find(s => s.id === id);
             if (!student) return;
 
             document.getElementById('editStudentId').value = student.id;
             document.getElementById('studentNameInput').value = student.name;
-            document.getElementById('studentRoleInput').value = student.role;
+            document.getElementById('studentRoleInput').value = student.role || '';
             
             document.getElementById('studentModalTitle').innerText = '학생 정보 수정';
             document.getElementById('deleteStudentBtn').classList.remove('hidden');
@@ -399,26 +458,63 @@
             openModal('addStudentModal');
         }
 
-        function deleteStudent() {
+        window.deleteStudent = function() {
             const editId = document.getElementById('editStudentId').value;
             if (!editId) return;
             
-            // 모달 안에서 삭제 확인 대신, 안전하게 상태변경 후 닫기
-            appState.students = appState.students.filter(s => s.id !== parseInt(editId));
+            const newStudents = window.appState.students.filter(s => s.id !== parseInt(editId));
+            syncToServer(newStudents);
+            
             showToast('학생이 삭제되었습니다.', 'success');
             closeModal('addStudentModal');
-            renderGrid();
         }
 
-        function saveSettings() {
-            const key = document.getElementById('apiKeyInput').value;
-            appState.apiKey = key;
-            showToast('환경설정이 저장되었습니다.', 'success');
+        window.bulkImportStudents = function() {
+            const text = document.getElementById('bulkImportText').value.trim();
+            if (!text) {
+                showToast('명단을 입력해주세요.', 'error');
+                return;
+            }
+
+            // 공백, 줄바꿈, 쉼표 등으로 분리하고 빈 문자열 제거
+            const names = text.split(/[\s,\n]+/).filter(n => n.trim() !== '');
+            
+            if(names.length === 0) return;
+
+            let newStudents = [...window.appState.students];
+            let startId = newStudents.length > 0 ? Math.max(...newStudents.map(s => s.id)) + 1 : 1;
+
+            names.forEach(name => {
+                newStudents.push({
+                    id: startId++,
+                    name: name,
+                    role: '',
+                    history: { mon: false, tue: false, wed: false, thu: false, fri: false },
+                    rewardGiven: false
+                });
+            });
+
+            syncToServer(newStudents);
+            showToast(`${names.length}명의 학생이 추가되었습니다!`, 'success');
             closeModal('settingsModal');
         }
 
-        // --- Utility ---
-        function showToast(message, type = 'info') {
+        window.resetAllRecords = function() {
+            if(window.appState.students.length === 0) return;
+
+            const newStudents = window.appState.students.map(student => ({
+                ...student,
+                history: { mon: false, tue: false, wed: false, thu: false, fri: false },
+                rewardGiven: false
+            }));
+
+            syncToServer(newStudents);
+            showToast('모든 기록이 초기화되었습니다.', 'success');
+            closeModal('settingsModal');
+        }
+
+        // Utility
+        window.showToast = function(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             
@@ -432,12 +528,11 @@
                 icon = '<i class="fa-solid fa-triangle-exclamation text-white"></i>';
             }
 
-            toast.className = `toast ${bg} text-white px-6 py-3 rounded-full shadow-lg font-bold flex items-center gap-3 text-lg pointer-events-auto`;
+            toast.className = `toast ${bg} text-white px-6 py-4 rounded-full shadow-lg font-bold flex items-center gap-3 text-xl pointer-events-auto`;
             toast.innerHTML = `${icon} ${message}`;
             
             container.appendChild(toast);
 
-            // 3초 후 DOM에서 제거
             setTimeout(() => {
                 if(toast.parentNode) {
                     toast.parentNode.removeChild(toast);
@@ -445,12 +540,8 @@
             }, 3000);
         }
 
-        // Init
-        window.onload = () => {
-            initDates();
-            loadMockData();
-            renderGrid();
-        };
+        // Initialize App
+        initAuth();
 
     </script>
 </body>
